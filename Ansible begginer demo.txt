@@ -679,10 +679,6 @@ Installing and configuring Mysql(Mariadb)
 
 
 
-
-
-
-
 get_url:
 #get_url module can be used to download a file from the internet.
 
