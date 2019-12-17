@@ -1,0 +1,37 @@
+For a long time rebooting a host with Ansible has been tricky. The steps are:
+
+ssh to the host
+Reboot the host
+Disconnect before the host closes your ssh connection
+Wait some number of seconds to ensure the host has really shut down
+Attempt to ssh to the host and execute a command
+Repeat ssh attempt until it works or you give up
+Seems clear enough, but if you Google for an answer you may end up at this StackExchange page that gives lots of not-quite-correct answers from 2015 (and one correct answer). Some people suggest checking port 22, but just because ssh is listening doesn’t mean that it’s at state where it’s accepting connections.
+
+The correct answer is use Ansible version 2.7 or greater. 2.7 introduced the reboot command, and now all you have to do is add this to your list of handlers:
+
+- name: Reboot host and wait for it to restart
+  reboot:
+    msg: "Reboot initiated by Ansible"
+    connect_timeout: 5
+    reboot_timeout: 600
+    pre_reboot_delay: 0
+    post_reboot_delay: 30
+    test_command: whoami
+This handler will:
+
+Reboot the host
+Wait 30 seconds
+Attempt to connect via ssh and run whoami
+Disconnect after 5 seconds if it ssh isn’t working
+Keep attempting to connect for 10 minutes (600 seconds)
+Add the directive:
+
+  notify: Reboot host and wait for it to restart
+… to any Ansible command that requires a reboot after a change. The host will be rebooted when the playbook finishes, then Ansible will wait until the host is back up and ssh is working before continuing on to the next playbook.
+
+If you need to reboot halfway through a playbook you can force all handlers to execute with the command:
+
+- name: Reboot if necessary
+  meta: flush_handlers
+I sometimes do that to change something, force a reboot, then verify that the change worked, all within the same playbook.
