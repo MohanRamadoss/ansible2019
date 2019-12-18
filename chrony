@@ -1,0 +1,78 @@
+configuring timezone, ntp, and hwclock
+You do not find to much variables and to much fancy voodoo inside this playbook to keep things simple.
+
+In the playbook you will also find some changes on the local firewall of the management server. This needed to be done, so the clients can reach the master time server.
+
+Please note the following grouping:
+
+manager – only the management host (recognized  as not being part of the DCs) (has the ip address 172.16.20.1)
+servers – all servers in my datacenter(s), except the management host
+# cat /etc/ansible/ntp_playbook.yml 
+# ntp playbook - first attempt
+
+- hosts: testserver
+  tasks:
+  - name: allow ntp through firewall
+    shell: firewall-cmd --add-service=ntp --permanent
+
+  - name: firewall reload
+    shell: firewall-cmd --reload
+
+  - name: Make sure Chrony is started up
+    service: name=chronyd state=running enabled=yes
+    tags: chrony
+ 
+- hosts: testserver
+  tasks:
+  - name: set timezone
+    shell: timedatectl set-timezone Europe/Berlin
+
+  - name: Install NTP
+    yum: name=ntp state=installed 
+    tags: ntp
+ 
+  - name: Copy over the NTP configuration
+    template: src=./templates/ntp.conf dest=/etc/ntp.conf
+    notify:
+    - restart ntpd
+    tags: ntp
+ 
+  - name: Make sure NTP is stopped
+    service: name=ntpd state=stopped enabled=yes
+    tags: ntp
+ 
+  - name: Sync time initialy
+    shell: ntpdate 172.16.20.1
+    tags: ntp
+
+  - name: Make sure NTP is started up
+    service: name=ntpd state=running enabled=yes
+    tags: ntp
+
+  - name: Sync hwclock
+    shell: hwclock -w
+    tags: ntp
+
+  handlers:
+  - name: restart ntpd
+    service: name=ntpd state=restarted
+For this to work we need the source ntp.conf file (here you find a version without any comments):
+
+# cat /etc/ansible/templates/ntp.conf
+driftfile /var/lib/ntp/drift
+
+restrict default nomodify notrap nopeer noquery
+
+restrict 127.0.0.1 
+restrict ::1
+
+server 172.16.20.1 iburst
+
+includefile /etc/ntp/crypto/pw
+
+keys /etc/ntp/keys
+
+disable monitor
+And the command to run this playbook:
+
+# ansible-playbook /etc/ansible/ntp_playbook.yml
