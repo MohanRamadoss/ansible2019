@@ -1,0 +1,44 @@
+---
+ - hosts: all
+   gather_facts: no
+   become: yes
+   become_method: sudo
+   tasks:
+
+     - name: Getting os version
+       shell: cat /etc/*-release | grep "PRETTY_NAME" | sed 's/PRETTY_NAME=//g' | sed 's/"//g'
+       register: os
+
+     - name: Getting hostname version
+       shell: hostname
+       register: hostname
+
+     - name: Getting uname version
+       shell: uname -r
+       register: uname
+  
+     - name: Getting uname arc
+       shell: uname -p
+       register: arc
+  
+     - name:
+       shell: cat /etc/redhat-release
+       register: release
+
+     - name:
+       shell: rpm -qa | grep curl | grep -v lib | grep -v python
+       register: curl
+  
+
+     - name: create some file
+       local_action: file path=/tmp/rhelroot  state=absent mode=0755
+       delegate_to: 192.168.1.30
+ 
+     - name: create some file
+       local_action: file path=/tmp/rhelroot  state=touch mode=0755
+       delegate_to: 192.168.1.30
+
+     - name: Writing gathered data locally to file.
+       local_action: lineinfile line="{{ hostname.stdout, os.stdout,  uname.stdout, arc.stdout,  curl.stdout   }}" insertafter=EOF dest=/tmp/rhelroot
+
+

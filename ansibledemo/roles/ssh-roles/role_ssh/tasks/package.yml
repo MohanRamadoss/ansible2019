@@ -1,0 +1,13 @@
+--- # My First YAML Playbook for Ansible
+    - name: Remove HTTPD test packages from Centos
+      yum: name=httpd state=removed
+      when: "ansible_os_family == 'RedHat'"
+      ignore_errors: yes
+    - name: Remove lynx packages from CentOs
+      yum: name=lynx state=removed
+      when: "ansible_os_family == 'RedHat'"
+      ignore_errors: yes
+    - name: Remove telnet packages from CenTos
+      yum: name=telnet state=removed
+      when: "ansible_os_family == 'RedHat'"
+      ignore_errors: yes

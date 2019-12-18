@@ -1,0 +1,40 @@
+---
+- name: Disks playbook
+  hosts: testserver
+  become: yes
+  tasks:
+   - name: hostname
+     debug:
+       var=ansible_hostname
+
+   - name: yum install lvm package
+     when: ansible_os_family == "RedHat"
+     yum:
+        name: lvm2 
+        state: present
+
+   - name: Create the Volume Group
+     lvg:
+      vg: dockervg
+      pvs: /dev/sdb
+
+   - name: Create Logical Volume
+     lvol:
+      lv: dockerlv01
+      vg: dockervg
+      size: 19G
+      pvs: /dev/sdb
+      state: present   
+
+   - name: Format the disk
+     filesystem:
+      dev: /dev/dockervg/dockerlv01
+      fstype: xfs
+  
+   - name: Mount the disk
+     mount:
+      fstype: xfs
+      src: /dev/dockervg/dockerlv01
+      state: mounted
+      path: /var/lib/docker
+

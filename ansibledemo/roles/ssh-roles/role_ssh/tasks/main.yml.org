@@ -1,0 +1,107 @@
+---
+# tasks for ssh
+- name: Set SSH Protocol to 2
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^Protocol '
+    line='Protocol 2'
+
+- name: Set LogLevel to INFO
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^LogLevel '
+    line='LogLevel INFO'
+
+- name: Set Permissions on /etc/ssh/sshd_config
+  file:
+    state=file
+    path=/etc/ssh/sshd_config
+    owner=root
+    group=root
+    mode=0600
+
+- name: Disable SSH X11 Forwarding
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^X11Forwarding '
+    line='X11Forwarding no'
+
+- name: Set SSH MaxAuthTries to 4 or less
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^MaxAuthTries '
+    line='MaxAuthTries 4'
+
+- name: Set SSH IgnoreRHosts to Yes
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^IgnoreRhosts '
+    line='IgnoreRhosts yes'
+
+- name: Set SSH HostbasedAuthentication to No
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^HostbasedAuthentication '
+    line='HostbasedAuthentication no'
+
+- name: Disable SSH Root Login
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^PermitRootLogin '
+    line='PermitRootLogin no'
+
+- name: Set SSH PermitEmptyPasswords to No
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^PermitEmptyPasswords '
+    line='PermitEmptyPasswords no'
+
+- name: Do Not Allow Users to Set Environment Options
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='PermitUserEnvironment '
+    line='PermitUserEnvironment no'
+
+- name: Use Only Approved Cipher in Counter Mode
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^Ciphers '
+    line='Ciphers aes128-ctr,aes192-ctr,aes256-ctr'
+
+- name: Set Idle Timeout Interval (ClientAliveInterval)
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^ClientAliveInterval '
+    line='ClientAliveInterval 300'
+
+- name: Set Idle Timeout Interval (ClientAliveCountMax)
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^ClientAliveCountMax '
+    line='ClientAliveCountMax 0'
+
+- name: Limit Access via SSH
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^DenyUsers '
+    line='DenyUsers root'
+
+- name: Set SSH Banner
+  lineinfile:
+    state=present
+    dest=/etc/ssh/sshd_config
+    regexp='^Banner '
+    line='Banner /etc/issue'

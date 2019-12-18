@@ -1,0 +1,73 @@
+---
+- name: Check the uptime before reboot
+  shell: uptime
+  register: UPTIME_PRE_REBOOT
+
+- debug: msg={{UPTIME_PRE_REBOOT.stdout}}
+
+- name: Clean yum cache
+  command: /bin/bash -c "/usr/bin/yum clean all"
+  when: ansible_os_family == 'RedHat'
+
+#Update kernel Package
+- name: Upgrade Kernel Package
+  yum: name=kernel state=latest
+  async: 1000
+  poll: 0
+  register: yum_update
+  when: ansible_os_family == 'RedHat'
+
+- name: 'YUM - check on fire and forget task'
+  async_status: jid={{ yum_update.ansible_job_id }}
+  register: job_result
+  until: job_result.finished
+  retries: 100
+
+#- name: Update all packages via yum
+#  yum:
+#    name: '*'
+#    state: latest
+#    update_cache: yes
+#  when: ansible_os_family == 'RedHat'
+
+
+
+- name: check for updates (yum)
+  yum: list=updates update_cache=true
+  register: yumoutput
+
+  when: ansible_distribution == 'CentOS' or ansible_os_family == 'RedHat'
+
+- debug: msg="{{ yumoutput.results | map(attribute='name') | list }}"
+
+#If you install the yum-utils package, you can use a command called needs-restarting
+# needs-restarting -r returns 0 if reboot is not needed, and 1 if it is, so it is perfect to use in a script.
+
+- name: yum-util Package Installation
+  yum: name=yum-utils state=latest
+  when: ansible_os_family == 'RedHat'
+
+- name: check if reboot required after kernel update.
+  shell: NEED_RESTARTING=$(needs-restarting -r); if [[  "$?" -ne 0 ]]; then echo "reboot_need" ; else echo “reboot_not_needed”; fi
+  ignore_errors: true
+  register: reboot_required
+  when: ansible_os_family == 'RedHat'
+
+- name: restart system
+  reboot:
+    msg: "Reboot initiated by Ansible"
+    connect_timeout: 5
+    reboot_timeout: 600
+    pre_reboot_delay: 0
+    post_reboot_delay: 30
+    test_command: whoami
+  register: reboot_started
+  ignore_errors: true
+  when: ansible_os_family == 'RedHat' and reboot_required.stdout == 'reboot_need'
+
+
+- name: Check the uptime after reboot
+  shell: uptime
+  register: UPTIME_POST_REBOOT
+
+- debug: msg={{UPTIME_POST_REBOOT.stdout}}

@@ -1,0 +1,19 @@
+[all]
+node1.rmohan.com  ansible_user=dev01
+node2.rmohan.com  ansible_user=dev01
+node3.rmohan.com  ansible_user=dev01
+test1.rmohan.com  ansible_user=dev01
+test2.rmohan.com  ansible_user=dev01
+
+
+## db-[99:101]-node.example.com
+[webserver]
+node1.rmohan.com  ansible_user=dev01
+[appserver]
+node2.rmohan.com  ansible_user=dev01
+[dbserver]
+node3.rmohan.com  ansible_user=dev01
+
+[testserver]
+test1.rmohan.com  ansible_user=dev01
+test2.rmohan.com  ansible_user=dev01

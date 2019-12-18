@@ -1,0 +1,94 @@
+---
+- name: Playbook Sample
+  hosts: testserver
+  become: true
+  tasks:
+    - name: Remove telnet package
+      yum:
+        name: telnet 
+        state: absent
+
+    - name: root change sshd 
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin\s+'
+        line: PermitRootLogin no
+        validate: sshd -t -f %s
+        backup: yes
+      notify:
+        - sshdRestart
+
+    - name: SSH | Configure SSH Strict Mode
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config
+        regexp: '#StrictModes yes'
+        line: 'StrictModes yes'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart 
+
+    - name: SSH | Configure SSH Pubkey Auth
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config 
+        regexp: 'PubkeyAuthentication yes'
+        line: 'PubkeyAuthentication yes'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart 
+
+    - name: SSH | Configure SSH Agent Forwarding
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config 
+        regexp: '#AllowAgentForwarding yes'
+        line: 'AllowAgentForwarding no'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart 
+
+    - name: SSH | Configure SSH Tcp Forwarding
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config 
+        regexp: '#AllowAgentForwarding yes'
+        line: 'AllowTcpForwarding no'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart
+
+    - name: SSH | Configure SSH X11 Forwarding
+      lineinfile:
+        state: present
+        path: /etc/ssh/sshd_config
+        regexp: 'X11Forwarding yes'
+        line: 'X11Forwarding no'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart 
+
+    - name: Ensure only approved ciphers are used
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config
+        regexp: '^Ciphers'
+        line: 'Ciphers  aes128-ctr,aes192-ctr,aes256-ctr'
+        validate: sshd -t -f %s
+      notify: sshdRestart  
+
+    - name: Ensure SSH LoginGraceTime is set to one minute or less
+      lineinfile:
+        state: present
+        dest: /etc/ssh/sshd_config
+        regexp: '^LoginGraceTime'
+        line: "LoginGraceTime 60"
+        validate: sshd -t -f %s
+      notify: sshdRestart  
+
+  handlers:
+    - name: sshdRestart
+      service:
+        name: sshd
+        state: restarted

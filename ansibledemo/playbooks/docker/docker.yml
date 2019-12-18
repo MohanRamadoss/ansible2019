@@ -1,0 +1,4 @@
+---
+ - import_playbook: dockerdisk.yaml
+ - import_playbook: installdocker.yaml
+
