@@ -72,8 +72,8 @@
         - docker_compose_check.msg.find('No such file or directory') != -1
 
     - name: Give insecure permissions to docker-compose
-      file: dest=/usr/local/bin/docker-compose owner=root group=apache mode=775
+      file: dest=/usr/local/bin/docker-compose owner=root group=root mode=775
      
 
     - name: Create a symbolic link
-      file: src=/usr/local/bin/docker-compose  dest=/usr/bin/docker-compose    owner=root   group=foo state=link  
+      file: src=/usr/local/bin/docker-compose  dest=/usr/bin/docker-compose    owner=root   group=root state=link  
