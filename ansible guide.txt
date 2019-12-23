@@ -1,4 +1,2462 @@
 
+## What is Ansible
+Ansible is a modern IT automation tool which makes your life easier by managing your servers for you. You just need
+to define the configuration in which you are interested and ansible will go ahead and do it for you, be it installing
+a package or configuring a server application or even restarting a service. Ansible is always ready to manage your
+servers.
+
+## Why do we need Ansible
+
+Managing a infrastructure/environment is easy. Managing 5 is do’able. Managing hundreds or more is a painful task without automation.
+Ansible is designed to be simple and effective. You can create identical, replicable servers and clusters of servers in a painless and reliable manner
+
+## Ansible offerings
+
+Configuration Management
+Deployments
+Provisioning
+Orchestration :: Different tasks on different hosts
+
+## Why use Ansible
+
+It is a free open source application by RedHat
+It is Idempotent which is extremely important and useful 
+Cross Platform Support --> Installed ansible in Ubuntu ---> deployments to be done in CentOs/Fedora/RHEL/Windows
+Agent-less Architecture 
+Highly flexible and configuration management of systems
+Large number of ready to use modules for system management 
+Custom modules can be added if needed
+Configuration roll-back in case of error 
+Simple and human readable as it follows YAML langauge
+Easy to manage in VCS and easy also easy to build CI pipeline
+Self documenting
+
+
+
+
+Selinux :: SeLinux Settings
+Control Nodes --
+	Managed by Admins which has copies of all projects. 
+	Control Node will run playbooks.
+	Control Node is the Ansible Server
+	
+Managed Hosts --
+    server will have an IP 11.22.33.111 or DNS bng.gamut.com
+	These are servers listed in the host file
+	Servers can be clustered and can be in groups for easy deployments
+	Authorized_key Module with ask-pass option
+	
+Modules -- 
+	Every action ( task ) which needs to take place from Control Node to Managed Node is done using Ansible Modules
+	Hundreds of supported modules are already available for Linux/Windows.
+	Custom Modules can also be built using Python
+	Modules will inturn have actual tasks they have to perform
+	ansible-doc -l ( lists all modules installed )
+
+	Location of all Ansible Modules ::
+		https://docs.ansible.com/ansible/latest/modules/modules_by_category.html
+		
+ Modules:
+  ********
+  yum module - use for linux m/c
+  apt moudle
+  ping module
+  user
+  file
+  docker
+  docker swarm
+  git 
+
+  
+		
+
+YAML
+
+    Ansible uses YAML syntax for expressing Ansible playbooks.
+	should start with three -
+	end with three .
+	No tabs
+	follows strict indendation, always by 2 spaces
+	follows key value pair model. eg training: ansible
+	Strings can be without quotes, single quotes and double quotes
+	\n characters should be in double quotes
+	integers are automatically interpreted, example a = 1
+	integers should not be in double quotes, if it is then it is a string
+	list represened as below
+		- example 1
+		- example 2
+
+
+
+	ansible-playbook abc.yml --syntax-check
+
+
+Inventories -- 
+	Managed hosts are defined in inventories
+	Inventories can be Static or Dynamic. 
+		Dynamic inventories 
+			Few examples of Dynamic Inventories --> DB, Docker Containers, AWS Public IPs, New Infra with provisioning
+			achieved by using external scripts, these scripts are not officially supported by RedHat
+	Location of inventory files can be defined in Ansible.cfg file or while execution of playbook
+	Inventories can be classified into groups and few examples below
+
+
+
+
+
+
+
+
+Ansible Facts -- 
+		they are variables that are automatically discoverd by ansible while running playbook. It will run setup module by default
+		Facts contain host specific information that can be used as variables in plays
+		Few facts which will be considered/picked up by ansible from Managed Node::
+		host name, ip address, OS version, various system environment variables, number of CPUs, available disk space etc
+		use cases: 
+			run database update only when available disc space is more than 10GB
+			restart the managed host based on the OS version
+
+
+
+
+
+
+Gather facts by using below ansible command ::
+				ansible bng01.gamut.com -m setup (setup is the module)
+				can be accessed through debug module
+				
+				hosts: all
+
+  # Task: the list of tasks that will be executed within the play, this section
+  # can also be used for pre and post tasks
+  tasks:
+    - name: Show IP Address
+      debug:
+        msg: "{{ ansible_default_ipv4.address }}"
+		
+	We can have custom facts as well, but they are useful only on control node. default location of facts is /etc/ansible/facts.d
+	if we need these facts in the Managed hosts as well, then we will need to copy this file to the remote machines using file and copy modules
+	##name of file is "date"
+	#!/bin/bash
+	echo [date]
+	echo date=`date`
+	
+	ansible {ip/hostname} -m setup -a 'filter=ansible_local'
+	
+
+	
+	
+	* we can turn off gathering facts by setting them to NO
+				gather_facts: no
+				
+				
+Group-Variables --
+	
+	user = ansible
+	key 	value
+	gamutwarfile = /opt/gamut/softwares
+		
+	Host-variables --> Variable in playbooks are very similar to using variables in any programming language like java, python, shell scripting etc. 
+	It helps you to use and assign a value to a variable and use that anywhere in the playbook
+	These are variables that are declared in the playbook
+	Variables in playbook could be path of particular file or deployment location or any other repeated items
+	Variables are very helpful in managing ansible playbooks in clean and efficient way
+	
+	Host-variables examples --> vars, vars_files ( Yaml or txt), vars_prompt ( private /yes or no)
+	
+	correct naming   :: web_servers, app_servers, webservers
+	Incorrect naming :: web server, web.server or app$server
+	
+	ansible-playbook -i aa/bb/cc -e "{{name}}" ansibletraining.yml 
+	
+	Precedence     --> CMD (Global Scope ) -- playbook ( play Scope ) -- inventories ( Host Scope )
+	Important note --> Playbook should not start with variable. if it starts, then it has to be within quotes.
+	Recommended    --> to define group variables under separate directory and not directly under inventory file/s
+	
+Playbooks --
+
+	Play is set of tasks which should run on hosts as per inventory and sequentially in order
+	Playbook is a set of single or multiple plays
+	Playbook is heart/core feature of Ansible and is an organized unit of scripts that defines work for a server.
+	Playbook is a combination of name, user, hosts, variables, modules, roles
+	Playbooks are human-readable and self documented and they follow yaml syntax
+	Playbooks are run using ansible-playbook command 
+	Playbooks containes plays. 
+    Plays are specific to task eg: install git, start docker, stop docker
+	
+	
+    Ansible has lots of built in modules
+
+
+
+
+Playbook --> hosts, user information, modules, tasks, roles
+	
+Roles --
+
+	Roles are repeated activities which are common for provisioning/deployment process
+	This simplifies writing complex playbooks, and it makes them easier to reuse
+	Roles are small functionality which can be independently used but have to be used within playbooks.
+	Roles are not playbooks and they cant be independently executed
+	Ansible Galaxy is the place to find roles
+	There are hundreds of predefined roles available in Ansible-Galaxy which can be just used as Plug and Play 
+	Note -- Due diligence of private roles needs to be done before integrating them to the playbooks
+	
+	www.galaxy.ansible.com
+	ansible-galaxy install user.appname
+	by default, place these roles in /.ansible/roles
+	
+	
+
+	
+	We will create playbook
+	we will run playbook
+	and we will install Java using role which is integrated in the playbook
+
+
+
+
+
+
+A role directory structure contains directories: defaults, vars, tasks, files, templates, meta, handlers. Each directory must contain a main.yml file which contains relevant content. Let’s look little closer to each directory.
+defaults: contains default variables for the role. Variables in default have the lowest priority so they are easy to override.
+vars: contains variables for the role. Variables in vars have higher priority than variables in defaults directory.
+tasks: contains the main list of steps to be executed by the role.
+files: contains files which we want to be copied to the remote host. We don’t need to specify a path of resources stored in this directory.
+templates: contains file template which supports modifications from the role. We use the Jinja2 templating language for creating templates.
+meta: contains metadata of role like an author, support platforms, dependencies.
+handlers: contains handlers which can be invoked by “notify” directives and are associated with service.
+
+
+
+Module 
+
+Yum module 
+
+
+---
+ - hosts: all
+   become: True
+   tasks:
+     - name: Install apache
+       yum:
+         name: httpd
+         state: present
+		 
+
+
+apt 
+  
+---
+- hosts: localhost
+  become: yes
+  gather_facts: no  
+  vars:
+    packages: [vim,make,curl]
+
+  tasks:
+
+  - name: install package
+    apt: name={{item}} state=latest
+    with_items: packages
+
+
+
+
+---
+- name: install Apache webserver
+  hosts: databases
+
+  tasks:
+       - name: install Apache webserver
+         apt:  
+          name: apache2  
+          State: latest
+		  
+		  
+
+dnf 
+
+---
+- name: install Apache webserver
+  hosts: webservers
+
+  tasks:
+       - name: install httpd
+         dnf:  
+          name: httpd  
+          State: latest
+
+
+
+
+
+
+	 
+
+Files modules
+acl – Set and retrieve file ACL information
+archive – Creates a compressed archive of one or more files or trees
+assemble – Assemble configuration files from fragments
+blockinfile – Insert/update/remove a text block surrounded by marker lines
+copy – Copy files to remote locations
+fetch – Fetch files from remote nodes
+file – Manage files and file properties
+find – Return a list of files based on specific criteria
+ini_file – Tweak settings in INI files
+iso_extract – Extract files from an ISO image
+lineinfile – Manage lines in text files
+patch – Apply patch files using the GNU patch tool
+read_csv – Read a CSV file
+replace – Replace all instances of a particular string in a file using a back-referenced regular expression
+stat – Retrieve file or file system status
+synchronize – A wrapper around rsync to make common tasks in your playbooks quick and easy
+tempfile – Creates temporary files and directories
+template – Template a file out to a remote server
+unarchive – Unpacks an archive after (optionally) copying it from the local machine
+xattr – Manage user defined extended attributes
+xml – Manage bits and pieces of XML files or strings
+
+
+
+- name: Change file ownership, group and permissions
+  file:
+    path: /etc/foo.conf
+    owner: foo
+    group: foo
+    mode: '0644'
+
+- name: Give insecure permissions to an existing file
+  file:
+    path: /work
+    owner: root
+    group: root
+    mode: '1777'
+
+- name: Create a symbolic link
+  file:
+    src: /file/to/link/to
+    dest: /path/to/symlink
+    owner: foo
+    group: foo
+    state: link
+
+- name: Create two hard links
+  file:
+    src: '/tmp/{{ item.src }}'
+    dest: '{{ item.dest }}'
+    state: hard
+  loop:
+    - { src: x, dest: y }
+    - { src: z, dest: k }
+
+- name: Touch a file, using symbolic modes to set the permissions (equivalent to 0644)
+  file:
+    path: /etc/foo.conf
+    state: touch
+    mode: u=rw,g=r,o=r
+
+- name: Touch the same file, but add/remove some permissions
+  file:
+    path: /etc/foo.conf
+    state: touch
+    mode: u+rw,g-wx,o-rwx
+
+- name: Touch again the same file, but dont change times this makes the task idempotent
+  file:
+    path: /etc/foo.conf
+    state: touch
+    mode: u+rw,g-wx,o-rwx
+    modification_time: preserve
+    access_time: preserve
+
+- name: Create a directory if it does not exist
+  file:
+    path: /etc/some_directory
+    state: directory
+    mode: '0755'
+
+- name: Update modification and access time of given file
+  file:
+    path: /etc/some_file
+    state: file
+    modification_time: now
+    access_time: now
+
+- name: Set access time based on seconds from epoch value
+  file:
+    path: /etc/another_file
+    state: file
+    access_time: '{{ "%Y%m%d%H%M.%S" | strftime(stat_var.stat.atime) }}'
+
+- name: Recursively change ownership of a directory
+  file:
+    path: /etc/foo
+    state: directory
+    recurse: yes
+    owner: foo
+    group: foo
+
+- name: Remove file (delete file)
+  file:
+    path: /etc/foo.txt
+    state: absent
+
+- name: Recursively remove directory
+  file:
+    path: /etc/foo
+    state: absent
+
+
+
+
+#####################################################################################
+
+
+user module 
+
+---
+- hosts: all
+  become: True
+  tasks:
+    - name: add several users
+      user:
+        name: "{{item.name}}"
+        groups: "{{item.groups}}"
+        state: absent
+      with_items:
+        - {name: 'admin',groups: 'root'}
+        - {name: 'developer',groups: 'devops'}	
+		 
+
+
+
+
+
+
+---                               
+- name: Create New Users          
+  hosts: all                      
+  gather_facts: false             
+  tasks:                          
+    - name: Create Users Task  
+      user:                       
+        name: bob                 
+        state: present            
+        password: "{{ default_user_password | password_hash('sha512', 'A512') }}"
+        shell: /bin/bash          
+...
+
+
+
+
+- name: Creating user "{{ uusername }}" with admin access
+  user: 
+    name: {{ uusername }}
+    password: {{ upassword | password_hash('sha512') }}
+    groups: admin append=yes
+  when:  assigned_role  == "yes"
+
+- name: Creating users "{{ uusername }}" without admin access
+  user:
+    name: {{ uusername }}
+    password: {{ upassword | password_hash('sha512') }}
+  when:  assigned_role == "no"
+
+- name: Expiring password for user "{{ uusername }}"
+  shell: chage -d 0 "{{ uusername }}"
+  
+
+
+- name: Create madhead user
+  user:
+    name: madhead
+    password: "{{ 'password' | password_hash('sha512') }}"
+    shell: /bin/zsh
+    update_password: on_create
+  register: madhead
+- name: Force madhead to change password
+  shell: chage -d 0 madhead
+  when: madhead.changed
+
+
+
+
+---
+# Generate random password for new_user_name and the new_user_name
+# is required to change his/her password on first logon. 
+
+- name: Generate password for new user
+  shell: makepasswd --chars=20
+  register: user_password
+
+- name: Generate encrypted password
+  shell: mkpasswd --method=SHA-512 {{ user_password.stdout }}
+  register: encrypted_user_password
+
+- name: Create user account
+  user: name={{ new_user_name }}
+        password={{ encrypted_user_password.stdout }}
+        state=present
+        append=yes
+        shell="/bin/bash"
+        update_password=always
+  when: new_user_name is defined and new_user_name in uids
+  register: user_created
+
+- name: Force user to change password
+  shell: chage -d 0 {{ new_user_name }}
+  when: user_created.changed
+
+- name: User created
+  debug: msg="Password for {{ new_user_name }} is {{ user_password.stdout }}"
+  when: user_created.changed
+When you want to create a new user:
+
+ansible-playbook -i hosts.ini create_user.yml --extra-vars "new_user_name=kelvin"
+
+
+
+.
+└── ssh
+    ├── files
+    │   ├── user2.pub
+    │   ├── user4.pub
+    │   └── user6.pub
+    ├── tasks
+    │   └── main.yml
+    └── vars
+        └── users.yml
+
+---
+- name: Create New Users
+  hosts: all
+  gather_facts: false
+  tasks:
+   - name: Create Users Task
+      user:
+        name: "{{ item }}"
+        state: present
+        password: "{{ default_user_password | password_hash('sha512', 'A512') }}"
+        shell: /bin/bash
+        groups: "{{ admin_group }}"
+        append: true
+      loop:
+        - dev01
+        - dev02
+        - app01
+        - app02
+...                
+
+
+
+[ansible@controller]$ cat ssh/vars/users.yml 
+---
+users:
+
+  - username: user2
+    use_sudo: yes
+
+  - username: user4
+    use_sudo: no
+
+  - username: user6
+    use_sudo: no
+
+
+
+[ansible@controller]$ tree
+.
+└── ssh
+    ├── files
+    │   ├── user2.pub
+    │   ├── user4.pub
+    │   └── user6.pub
+    ├── tasks
+    │   └── main.yml
+    └── vars
+        └── users.yml
+
+4 directories, 5 files
+
+
+
+ cat  ssh/tasks/main.yml 
+---
+  - include_vars: users.yml
+
+  
+  - name: Create users with home directory
+    user: name={{ item.username }} shell=/bin/bash createhome=yes comment='Created by Ansible'
+    with_items: '{{users}}'
+
+  - name: Setup | authorized key upload
+    authorized_key: user={{ item.username }}
+      key="{{ lookup('file', 'files/{{ item.username }}.pub') }}"
+    when: '{{ item.use_sudo }} == True'
+    with_items: '{{users}}'
+
+  - name: Sudoers | update sudoers file and validate
+    lineinfile: "dest=/etc/sudoers
+      insertafter=EOF
+      line='{{ item.username }} ALL=(ALL) NOPASSWD: ALL'
+      regexp='^{{ item.username }} .*'
+      state=present"
+    when: '{{ item.use_sudo }} == True'
+    with_items: '{{users}}'
+	
+
+
+
+
+
+If you need to create a large list of users and groups with the users spread among the different groups, you can use loops. Let's start by creating the groups:
+
+- name: create user groups
+  group:
+    name: "{{ item }}"
+  loop:
+    - postgresql
+    - nginx-test
+    - admin
+    - dbadmin
+    - hadoop
+You can create users with specific parameters like this:
+
+- name: all users in the department
+  user:
+    name:  "{{ item.name }}"
+    group: "{{ item.group }}"
+    groups: "{{ item.groups }}"
+    uid: "{{ item.uid }}"
+    state: "{{ item.state }}"
+  loop:
+    - { name: 'admin1', group: 'admin', groups: 'nginx', uid: '1234', state: 'present' }
+    - { name: 'dbadmin1', group: 'dbadmin', groups: 'postgres', uid: '4321', state: 'present' }
+    - { name: 'user1', group: 'hadoop', groups: 'wheel', uid: '1067', state: 'present' }
+    - { name: 'jose', group: 'admin', groups: 'wheel', uid: '9000', state: 'absent' }
+Looking at the user jose, you may recognize that state: 'absent' deletes this user account, and you may be wondering why you need to include all the other parameters when you're just removing him. It's because this is a good place to keep documentation of important changes for audits or security compliance. By storing the roles in Git as your source of truth, you can go back and look at the old versions in Git if you later need to answer questions about why changes were made.
+
+To deploy SSH keys for some of the users, you can use the same type of looping as in the last example.
+
+- name: copy admin1 and dbadmin ssh keys
+  authorized_key:
+    user: "{{ item.user }}"
+    key: "{{ item.key }}"
+    state: "{{ item.state }}"
+    comment: "{{ item.comment }}"
+  loop:
+    - { user: 'admin1', key: "{{ lookup('file', '/data/test_temp_key.pub'), state: 'present', comment: 'admin1 key' }
+    - { user: 'dbadmin', key: "{{ lookup('file', '/data/vm_temp_key.pub'), state: 'absent', comment: 'dbadmin key' }
+Here, we specify the user, how to find the key by using lookup, the state, and a comment describing the purpose of the key.
+
+
+
+
+
+Deleting Accounts
+
+---                      
+- name: Clean User Accounts
+  hosts: all             
+  gather_facts: false                                                                                                                  
+  become: true           
+  tasks:                                          
+    - name: Delete Users
+      user:              
+        name: "{{ item }}"
+        state: absent
+        remove: true
+      loop:              
+        - dev01
+        - dev02
+        - app01
+        - app02         
+...    
+
+
+
+
+
+---
+- hosts: localhost
+  become: yes
+  gather_facts: no  
+
+  tasks:
+    - name: add several users
+      user:
+        name: "{{ item }}"
+        state: present
+        groups: "sudo"
+      with_items:
+        - testuser1
+        - testuser2
+		
+		
+add_users_dict
+
+
+---
+- hosts: localhost
+  become: yes
+  gather_facts: no  
+
+  tasks:
+    - name: add several users
+      user:
+        name: "{{ item.name }}"
+        state: present
+        groups: "{{ item.groups }}"
+      with_items:
+        - { name: 'test1', groups: 'sudo' }
+        - { name: 'testuser1', groups: 'root' }
+
+
+
+#########################################################
+
+
+
+
+Starting services
+Much like packages, Ansible has different modules to start services. Like in our previous example, where we used the package module to do a general installation of packages, the service module does similar work with services, including with systemd and Upstart. (Check the module's documentation for a complete list.) Here is an example:
+
+  - name: start nginx
+    service:
+      name: nginx
+      state: started
+You can use Ansible's service module if you are just starting and stopping applications and don't need anything more sophisticated. But, like with the yum module, if you need more options, you will need to use the systemd module. For example, if you modify systemd files, then you need to do a daemon-reload, the service module won't work for that; you will have to use the systemd module.
+
+  - name: reload postgresql for new configuration and reload daemon
+    systemd:
+      name: postgresql
+      state: reload
+      daemon-reload: yes
+This is a great starting point, but it can become cumbersome because the service will always reload/restart. This a good place to use a handler.
+
+If you used best practices and created your role using ansible-galaxy init "role name", then you should have the full directory structure. You can include the code above inside the handlers/main.yml and call it when you make a change with the application. For example:
+
+handlers/main.yml
+
+  - name: reload postgresql for new configuration and reload daemon
+    systemd:
+      name: postgresql
+      state: reload
+      daemon-reload: yes
+This is the task that calls the handler:
+
+  - name: configure postgresql
+    template:
+      src: postgresql.service.j2
+      dest: /usr/lib/systemd/system/postgresql.service
+    notify: reload postgresql for new configuration and reload daemon
+
+
+Example 1: Starting Apache Webserver
+---
+- name: Start service httpd, if not started
+  service:
+    name: httpd
+    state: started
+Example 2: Stopping Apache Webserver
+---
+- name: Stop service httpd
+  service:
+    name: httpd
+    state: stopped
+Example 3: Restarting a Network Interface enp2s0
+---
+- name: Restart network service for interface eth0
+  service:
+    name: network
+    state: restarted
+    args: enp2s0
+
+
+
+
+#######################################
+copy module
+
+
+Copy Module
+As the name suggests, copy module copies files from one location on the remote machine to a different location on the same machine.
+
+Example 1: Copying Files from Local to Remote Linux
+---
+- name: Copy file with owner and permissions
+  copy:
+    src: /etc/files/mohantest.conf
+    dest: /srv/mohantest.conf
+    owner: mohantest
+    group: mohantest
+    mode: '0644'
+The playbook copies the config file mohantest.conf from /etc/files/ directory to /srv/ directory as mohantest user with 0644 permissions.
+
+Permissions can also be represented using symbolic representation as shown in the last line.
+
+Example 2: Copying Files from Local to Remote Linux
+---
+- name: Copy file with owner and permissions
+  copy:
+    src: /etc/files/mohantest.conf
+    dest: /srv/mohantest.conf
+    owner: mohantest
+    group: mohantest
+    mode: u=rw, g=r, o=r
+The permissions in the previous example can be represented as shown in the last line, The user is assigned read and write permissions, the group is assigned write permissions, and the rest of the world is assigned read permissions.
+
+File Module
+The file module is used to carry many file operations including creating files & directories, assigning file permissions, and setting symlinks.
+
+Example 1: Perform Linux File Permissions
+---
+- name: Change file ownership, group, and permissions
+  file:
+    path: /etc/mohantest.conf
+    owner: mohantest
+    group: mohantest
+    mode: '0644'
+The above play creates a file called mohantest.conf in the /etc directory setting permissions to 0644.
+
+Example 2: Delete Linux File
+---
+- name: Remove file (delete file)
+  file:
+    path: /etc/mohantest.conf
+    state: absent
+
+
+######################################
+Directory 
+
+
+Example 3: Create a Directory
+---
+- name: create a directory if it doesn’t exist
+  file:
+    path: /etc/mydirectory
+    State: directory
+    mode: '0777'
+This will create a directory in the /etc directory setting permissions to 0777.
+
+Example 4: Recursiverly Delete a Directory
+---
+- name: Recursively deleting a  directory
+  file:
+    path: /etc/mohantest.conf
+    state: absent
+
+
+
+
+reate Files and Directories with Ansible
+To create files of directories, use the file module.
+
+Create a New Directory
+For example, to create a new directory.
+
+---
+- hosts: webservers
+  tasks:
+
+  - name: Create a new directory
+    file: 
+     path: /opt/app
+     state: directory
+You can add other attributes such as owner, group and file permissions.
+
+- hosts: webservers
+  tasks:
+
+  - name: Create a new directory
+    file: 
+     path: /opt/web
+     state: directory
+     owner: www-data
+     group: www-data
+     mode: 0644
+Additionally, you can create directories recursively using the recurse: yes statement.
+
+---
+- hosts: webservers
+  tasks:
+
+  - name: Create directories recursively
+    file: 
+     path: /opt/web/app
+     state: directory
+     owner: www-data
+     group: www-data
+     mode: 0644
+recurse: yes
+Create a File
+To create a file, use the state: touch option.
+
+---
+- hosts: webservers
+  tasks:
+
+  - name: Create a new file
+    file: 
+     path: /opt/web/index.html
+     state: touch
+owner: www-data
+     group: www-data
+     mode: 0644
+
+
+
+
+
+Lineinfile Module
+The lineinfile module is helpful when you want to change a single line in a file. It can replace an existing line.
+
+Example 1: Manipulate Files in Linux
+---
+ - name: Ensure SELinux is set to enforcing mode
+  lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: SELINUX=disabled
+The play above sets SELINUX value to disabled.
+
+SELINUX=disabled
+Example 2: Alter Files in Linux
+---
+- name: Add a line to a file if the file does not exist, without         passing regexp
+  lineinfile:
+    path: /etc/hosts
+    line: 192.168.1.34 mohantest.com
+    create: yes
+This adds the entry 192.168.1.34 mohantest.com to the /etc/hosts file.
+
+
+
+
+Archive Module
+An Archive module is used for the creation of a compressed archive of a single or multiple files. It assumes the compression source exists is present on the target destination. After archival, the source file can later be deleted or removed using the statement remove=True.
+
+Example 1: Create a Archive File
+- name: Compress directory /path/to/mohantest_dir/ into /path/to/mohantest.tgz
+  archive:
+    path: /path/to/mohantest_dir
+    dest: /path/to/mohantest.tgz
+
+This compresses the /path/to/mohantest_dir  directory to /path/to/mohantest.tgz
+Example 2: Create a Archive File and Remove
+- name: Compress regular file /path/to/mohantest into /path/to/foo.gz and remove it
+  archive:
+    path: /path/to/mohantest
+    dest: /path/to/mohantest.tgz
+    remove: yes
+In the above play, the source file /path/to/mohantest is deleted after the archival is complete.
+
+Example 3: Create a Archive File
+- name: Create a bz2 archive of /path/to/mohantest
+  archive:
+    path: /path/to/mohantest
+    format: bz2
+This creates a compressed file in bz2 format from the /path/to/mohantest file.
+
+Git Module
+The module manages git checkouts of software repositories.
+
+Example 1: Check Git Repositoires
+- git:
+    repo: 'https://foosball.example.org/path/to/repo.git'
+    dest: /srv/checkout
+    version: release-0.22
+	
+
+
+Compress a Directory
+Consider a playbook compress.yml below.
+
+---
+- hosts: webservers
+  tasks:
+
+    • name: Compress a folder
+archive:
+        path: /opt/data/web
+        dest: /tmp/web.gz
+The above playbook compresses the /opt/data/web directory and saves it to /tmp/web.gz.
+
+	
+Compress a Directory with Format
+The default compression format is .gz, however, this can be specified using the format attribute. Sample the next Playbook.
+
+---
+- hosts: webservers
+  Tasks:
+
+  - name: Create a zip archive 
+    archive:
+     path: /opt/data/web
+     dest: /tmp/web
+     format: zip
+
+uncompress a File
+You can also uncompress a compressed file using the unarchive attribute. Consider the playbook below.
+
+---
+- hosts: webservers
+  tasks:
+
+ - name:Uncompress /tmp/web.gz to/opt directory  on Ansible controller
+   unarchive:
+     src: /tmp/web.bz2
+     dest: /opt/
+The playbook above uncompresses the file /opt/data/web.gz to /opt on the Ansible controller.
+
+Uncompress a File on Remote Node
+To specify the remote source system use the remote_src=yes option.
+
+---
+- hosts: webservers
+  tasks:
+
+ - name:Uncompress /tmp/web.bz2 to/opt on remote host
+   unarchive:
+     src: /tmp/web.bz2
+     dest: /opt/
+     remote_src=yes 	 
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+Command Module
+One of the most commonly used modules, the command module takes the command name and later followed by a list of arguments. The command is a passed the same way that you’d type in a Linux shell.
+
+Example 1: Run a Command
+- name: Executing a command using the command module
+  command: cat helloworld.txt
+Example 2: Check Uptime of Remote Linux
+---
+ - name: Check the remote host uptime
+    hosts: servers
+    tasks:
+      - name: Execute the Uptime command over Command module
+        register: uptimeoutput
+        command: "uptime"
+
+- debug:
+          var: uptimeoutput.stdout_lines	
+
+
+
+
+firewalld module 
+
+
+Managing Firewall with Ansible
+Another important task system administrators undertake is the management of the firewall. In Ansible playbooks, this has been made much easier with firewalld and ufw modules. You can configure the firewall to allow or block a port or service or even a source address.
+
+Let’s jump in and have a look at a few examples:
+
+Open/block Port 80 in firewalld
+---
+- name: Allow port 80 
+  hosts: webservers
+  tasks: 
+   
+   -firewalld:
+	port: 80/tcp
+     permanent: yes
+     state: enabled
+In the playbook above, port 80 is allowed across the firewall.
+
+
+
+
+e option permanent: yes enforces the firewall rule and makes it persistent across reboots. However, this rule does not apply immediately. It only comes into effect after a reboot. To enforce the rule immediately, use the option immediate: yes.
+
+To specify the addresses allowed, use the source:0.0.0.0/0 statement.
+
+- firewalld:
+    source: 192.168.0.0/24
+    zone: public
+    state: enabled
+To specify a range of ports to be allowed to use the port option as follows:
+
+- firewalld:
+    port: 213-567/udp
+    permanent: yes
+    state: enabled
+To block the port change the state option to disabled as shown:
+
+-firewalld:
+	port: 80/tcp
+     permanent: yes
+     state: disabled
+Add/Block a Service in firewalld
+Apart from adding/blocking a port, you can also apply the same rules to a service. And it’s quite simple. Just use the service module and append the service to be added and ensure that the state option is set to enabled.
+
+- firewalld:
+    service: https
+    permanent: true
+    state: enabled
+To block the service set the state option to disabled.
+
+- firewalld:
+    service: https
+    permanent: true
+    state: disabled
+
+
+
+Schedule Tasks with Ansible
+The cron module helps in scheduling jobs in Ansible Playbooks.
+
+Create a Scheduled Task
+Consider the playbook below.
+
+---
+- hosts: webservers
+  tasks:
+
+ - name: Create a scheduled task
+   cron:
+     name: Run employee attendance
+     job: sh /opt/scripts/attendace.sh
+      
+     month: 4
+     day: 5
+     hour: 17
+     minute: 00
+The playbook runs the attendance script on April 5th at 5:00 pm.
+
+Schedule a Script on Specific Date
+If you want to schedule this script to run only if the 5th day of April is a Monday, then use the weekday: 1 attribute. 0 denotes Sunday and 6 denotes Saturday according to cron notation.
+
+month: 4
+day: 5
+hour: 17
+minute: 00
+weekday: 1
+An asterisk (*) in any of these fields indicates any value.
+
+Run a Job on a Date
+To run the job on April 5th at 5:00 pm no matter what the weekday is, use the time parameters as shown.
+
+month: 4
+day: 5
+hour: 17
+minute: 00
+weekday: *
+Execute a Job on Specific Day on Every Month
+To execute the cron job on the 5th day of every month at 5:00 pm use the settings below.
+
+month: *
+day: 5
+hour: 17
+minute: 00
+weekday: *
+Execute a Job on Daily
+To execute the cron job daily at 5:00 pm set the time settings as shown:
+
+month: *
+day: *
+hour: 17
+minute: 00
+weekday: *
+Execute a Job on Every 5 Hours
+To execute the cron job every 5 hours, use the step value */5 as shown.
+
+month: *
+day: *
+hour: */5
+minute: *
+weekday: *
+
+
+
+
+
+
+Managing Storage with Ansible
+The lvg module is used to configure LVM volumes and groups.
+
+Create an LVM Volume Group
+Consider the playbook below:
+
+---
+- hosts: webservers
+  tasks: 
+    • name: Create lVM volume group
+lvg: 
+ vg: vg1
+ pvs: /dev/sda1
+ pesize: 32
+This creates a volume group on top of /dev/sda1 partition with a physical extent size of 32 MB.
+
+Once created, use the lvol module to create a logical volume as shown
+
+Create a Logical Volume
+---
+    - hosts: webservers
+      tasks: 
+
+       - name: Create lVM volume
+    lvol: 
+    vg: vg1
+    lv: lvol1
+    pvs: /dev/sda1
+
+
+
+Managing File Systems with Ansible
+To create a file system on a block device, use the filesystem module.
+
+Create a Filesystem
+The playbook below creates the filesystem type of xfs on the block volume.
+
+---
+    - hosts: webservers
+      tasks: 
+
+       - name: Create a filesystem
+         filesystem:
+         
+           fstype: xfs
+           dev: /dev/vg1/lvol1
+Mount a Filesystem
+You can next proceed to mount the block volume using the mount module as shown in the playbook below:
+
+---
+    - hosts: webservers
+      tasks: 
+
+       - name: Mount a filesystem
+         mount:
+         
+           fstype: xfs
+           src: /dev/vg1/lvol1
+           path: /opt/web
+           state: mounted
+
+
+
+
+###############################################
+Loops with items 
+############################################
+
+Nessted loop 
+
+
+---
+- name: Demo of with_nested
+  hosts: all
+  remote_user: root
+
+  vars:
+    list1: [1, 2, 3]
+    list2: [a, b, c, d]
+
+  tasks:
+    - name: Printing message
+      debug: msg="Values are {{item[0]}} and {{item[1]}}"
+      with_nested:
+        - list1
+        - list2
+
+
+
+
+
+
+
+
+
+
+
+
+multiple_package_withitem
+
+
+---
+ - hosts: all
+   become: True
+   tasks:
+     - name: install packages
+       yum: name={{ item }} state=present
+       with_items:
+          - git
+          - docker
+          - curl   
+
+
+multiple_pkgs_array
+
+---
+ - hosts: all
+   become: True
+   vars:
+     packages: [git]
+   tasks:
+       - name: Install packages
+         yum: name={{item}} state=installed
+         with_items: 
+           - "{{ packages }}"
+		   
+		   
+		   
+multiple_pkgs_loop
+
+---
+ - hosts: all
+   become: True
+   tasks:
+      - name: Install packages
+        yum : name={{ item }} state=installed
+        loop:
+                - git
+                - wget 
+				
+				
+
+
+
+####################################################################################################
+#########################
+Conditional 
+#########################
+
+
+
+Conditionals in loops
+Conditionals can also be used in a loop. Say for instance you have a list of multiple packages that need to be installed on remote nodes.
+
+In the playbook below, we have an array called packages containing a list of packages that need to be installed. These tasks will be carried out one after the other if the required clause is set to True.
+
+---
+ - name: Install Software packages
+    hosts: all
+    vars:
+	packages:
+    • name: nginx
+required: True
+    • name: mysql
+required: True
+    • name: apache
+required: False
+
+
+
+   tasks:
+    • name: Install “{{ item.name }}”on Debian
+apt: 
+ name: “{{ item.name }}”
+ state: present 
+When: item.required == True
+loop: “{{ packages }}”  
+
+
+Use Conditionals to Control Play Execution
+Just like in programming languages, conditional statements are used when more than one outcome is possible. Let’s have a look at some of the commonly used conditional statements in Ansible playbooks.
+
+When statement
+Sometimes, you may want to perform tasks on specific nodes and not others. The 'when' conditional statement is quite easy to use and implement in a playbook. When using the 'when' clause simply declare the condition adjacent to the clause as shown:
+
+when: condition
+When the condition is satisfied, then the task is performed on the remote system.
+
+Let’s check out a few examples:
+
+Example 1: Using When Operator
+---
+- hosts: all
+
+  tasks:
+  - name: Install Nginx on Debian
+     apt: name=nginx state=present
+     when: ansible_os_family == “Debian”
+The play above installs Nginx webserver on hosts running the Debian family of distros.
+
+You can also use the OR and AND operator alongside the when the conditional statement.
+
+Example 2: Using AND Operator with When
+---
+- hosts: all
+
+  tasks:
+  - name: Install Nginx on Debian
+     apt: name=nginx state=present
+     when: ansible_os_family == “Debian” and
+           ansible_distribution_version == “18.04”
+When using the AND operator, both statements must be satisfied for the task to be executed.
+
+The play above installs Nginx on Nodes running a Debian family of OS which is version 18.04. Obviously, this will be Ubuntu 18.04.
+
+Example 3: Using OR Operator with When
+With OR operator, the task is executed if either of the conditions is fulfilled.
+
+---
+- hosts: all
+
+  tasks:
+  - name: Install Nginx on Debian
+     apt: name=nginx state=present
+     when: ansible_os_family == “Debian” or
+	      Ansible_os_family == “SUSE”
+The play above installs Nginx webservers on either Debian or SUSE family of OS or both of them.
+
+NOTE: Always ensure to use the double equality sign == when testing a condition.
+
+
+apache-conditions.yml
+
+
+---
+- hosts: all
+  become: True
+  tasks:
+    - name: Install Apache server on Linux
+      yum:
+        name: httpd
+        state: present
+      when: ansible_os_family == 'RedHat'
+    - name: Install Apache server on Ubuntu
+      apt:
+        name: httpd
+        state: present
+      when: ansible_os_family == 'Ubuntu'
+	   
+
+
+---
+ - hosts: webservers
+   become: True
+   tasks:
+     - name: Install Apache Server
+       yum: name=httpd  state=present
+       when: ansible_os_family == "RedHat"
+
+     - name: Install Apache on Debian
+       apt:
+         name: apache2
+         state: present
+       when: ansible_os_family == "Debian"
+
+     - name: Start and enable Apache on reboot
+       service: name=httpd state=started enabled=True
+       when: ansible_os_family == "RedHat"
+
+     - name: Start and enable Apache on reboot
+       service: name=apache2 state=started enabled=True
+       when: ansible_os_family == "Debian"
+
+     - name: Deploy application on Apache server
+       copy: src=./index.html dest=/var/www/html
+
+   handlers:
+     - name: Restart Apache
+       service:
+         name: httpd
+         state: restarted
+		 
+		 
+		 
+  
+---
+- hosts: all
+  become: True
+  tasks:
+    - include: apache-linux.yml  
+      when: ansible_os_family == 'RedHat'
+    - include: apache-ubuntu.yml  
+      		 
+
+
+
+
+
+#################################################################################
+handlers
+
+
+---
+ - hosts: webservers
+   become: True
+   tasks:
+     - name: Install Apache Server
+       yum: name=httpd  state=present
+       when: ansible_os_family == "RedHat"
+
+     - name: Install Apache on Debian
+       apt:
+         name: apache2
+         state: present
+       when: ansible_os_family == "Debian"
+
+     - name: Start and enable Apache on reboot
+       service: name=httpd state=started enabled=True
+       when: ansible_os_family == "RedHat"
+
+     - name: Start and enable Apache on reboot
+       service: name=apache2 state=started enabled=True
+       when: ansible_os_family == "Debian"
+
+     - name: Deploy application on Apache server
+       copy: src=./index.html dest=/var/www/html
+
+   handlers:
+     - name: Restart Apache
+       service:
+         name: httpd
+         state: restarted
+
+
+
+
+		 
+
+####################################################################################################
+
+
+
+Web_Playbook
+
+First playbook
+
+
+
+# ------------------------------
+#           AFTER
+# ------------------------------
+-
+  name: Deploy a web application
+  hosts: db_and_web_server
+  tasks:
+    - name: Install dependencies
+      apt: name={{ item }} state=present
+      with_items:
+       - python
+       - python-setuptools
+       - python-dev
+       - build-essential
+       - python-pip
+       - python-mysqldb
+
+    - name: Install MySQL database
+      apt:
+        name: "{{ item }}"
+        state:  present
+      with_items:
+       - mysql-server
+       - mysql-client
+
+    - name: Start Mysql Service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create Application Database
+      mysql_db: name='employee_db' state=present
+
+    - name: Create Application DB User
+      mysql_user: name='db_user' password='Passw0rd' priv='*.*:ALL' host='%' state='present'
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+       - flask
+       - flask-mysql
+
+    - name: Copy web-server code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start web-application
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &
+      
+	  
+	  
+	  
+app.py
+
+
+# -------------------------------------------------
+#
+# This is the web application code. DO NOT MODIFY
+#
+# -------------------------------------------------
+
+from flask import Flask
+from flask.ext.mysql import MySQL
+app = Flask(__name__)
+
+mysql = MySQL()
+
+# MySQL configurations
+app.config['MYSQL_DATABASE_USER'] = 'db_user'
+app.config['MYSQL_DATABASE_PASSWORD'] = 'Passw0rd'
+app.config['MYSQL_DATABASE_DB'] = 'employee_db'
+app.config['MYSQL_DATABASE_HOST'] = 'localhost'
+mysql.init_app(app)
+
+conn = mysql.connect()
+
+cursor = conn.cursor()
+
+@app.route("/")
+def main():
+    return "Welcome!"
+
+@app.route('/how are you')
+def hello():
+    return 'I am good, how about you?'
+
+@app.route('/read from database')
+def read():
+    cursor.execute("SELECT * FROM employees")
+    row = cursor.fetchone()
+    result = []
+    while row is not None:
+      result.append(row[0])
+      row = cursor.fetchone()
+
+    return ",".join(result)
+
+if __name__ == "__main__":
+    app.run()
+
+
+
+
+
+
+##################################################################
+
+
+
+Hosts and variable 
+
+
+host_vars
+ubuntu_server.yml
+
+
+ansible_ssh_pass: Passw0rd
+ansible_host: 192.168.3.34
+db_name: employee_db
+db_user: db_user
+db_password: Passw0rd
+
+
+
+playbook.yml
+
+
+
+-
+  name: Deploy a web application
+  hosts: ubuntu_server
+  tasks:
+    - name: Install dependencies
+      apt: name={{ item }} state=installed
+      with_items:
+       - python
+       - python-setuptools
+       - python-dev
+       - build-essential
+       - python-pip
+       - python-mysqldb
+
+    - name: Install MySQL database
+      apt:
+        name: "{{ item }}"
+        state:  installed
+      with_items:
+       - mysql-server
+       - mysql-client
+
+    - name: Start Mysql Service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create Application Database
+      mysql_db: name={{ db_name }} state=present
+
+    - name: Create Application DB User
+      mysql_user: name={{ db_user }} password={{ db_password }} priv='*.*:ALL' host='%' state='present'
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+       - flask
+       - flask-mysql
+
+    - name: Copy web-server code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start web-application
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &
+
+
+
+
+##################################################################
+
+
+
+
+
+
+-
+  name: Deploy a web application
+  hosts: ubuntu_server
+  tasks:
+    - name: Install dependencies
+      apt: name={{ item }} state=installed
+      with_items:
+       - python
+       - python-setuptools
+       - python-dev
+       - build-essential
+       - python-pip
+       - python-mysqldb
+
+    - include: tasks/deploy_db.yml
+
+    - include: tasks/deploy_web.yml
+	
+	
+
+create folder as tasks
+
+deploy_db.yml
+
+	
+
+  - name: Install MySQL database
+    apt:
+      name: "{{ item }}"
+      state:  installed
+    with_items:
+     - mysql-server
+     - mysql-client
+
+  - name: Start Mysql Service
+    service:
+      name: mysql
+      state: started
+      enabled: yes
+
+  - name: Create Application Database
+    mysql_db: name={{ db_name }} state=present
+
+  - name: Create Application DB User
+    mysql_user: name={{ db_user }} password={{ db_password }} priv='*.*:ALL' host='%' state='present'
+
+	
+	
+
+
+deploy_web.yml
+
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+       - flask
+       - flask-mysql
+
+    - name: Copy web-server code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start web-application
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &
+
+	  
+
+
+
+Roles 
+
+create a folder roles and host_vars 
+
+
+flask_web/tasks	
+mysql_db/tasks	
+python/tasks
+
+
+
+# ------------------------------
+#           AFTER
+# ------------------------------
+-
+  name: Deploy a mysql DB
+  hosts: db_server
+  roles:
+    - python
+    - mysql_db
+
+
+-
+  name: Deploy a Web Server
+  hosts: web_server
+  roles:
+    - python
+    - flask_web
+	
+	
+	
+	
+mysql_db/tasks/main.yml
+
+	
+    - name: Install MySQL database
+      apt:
+        name: "{{ item }}"
+        state:  installed
+      with_items:
+       - mysql-server
+       - mysql-client
+
+    - name: Start Mysql Service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create Application Database
+      mysql_db: name={{ db_name }} state=present
+
+    - name: Create Application DB User
+      mysql_user: name={{ db_user }} password={{ db_password }} priv='*.*:ALL' host='%' state='present'	
+	
+	
+	
+flask_web/tasks/main.yml
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+       - flask
+       - flask-mysql
+
+    - name: Copy web-server code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start web-application
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &	
+	
+	
+	
+roles/python/tasks/main.yml
+
+
+
+
+  - name: Install dependencies
+      apt: name={{ item }} state=installed
+      with_items:
+       - python
+       - python-setuptools
+       - python-dev
+       - build-essential
+       - python-pip
+       - python-mysqldb
+
+
+
+
+
+
+mysql-playbook/db-vars.yml
+
+
+db-vars.yml
+db_name: app-db
+user_name: dbadmin
+password: dbadmin123
+
+
+--- 
+ - hosts: dbserver
+   become: True
+   vars_files:
+      - db-vars.yml
+   tasks:
+
+      - name: Install MySql server on Ubuntu
+        apt:
+          name: "{{item}}"
+          state: present
+        with_items:
+          - mysql-server
+          - python-mysqldb
+      - name: Start and enable mysql server
+        service:
+          name: mysql
+          state: started
+          enabled: True
+      - name: Allow mysql to accect conncetions from any host
+        lineinfile: dest=/etc/mysql/my.cnf regexp='^bind-address' line='bind-address=0.0.0.0'
+      - name: Create db
+        mysql_db:
+          name: "{{db_name}}"
+          state: present
+      - name: Create db user
+        mysql_user:
+          name: "{{user_name}}"
+          password: "{{passowrd}}"
+          state: present
+          priv: 'app-db.*:ALL'
+
+
+
+
+
+
+
+
+
+
+
+#################################
+Async
+###############################
+
+
+
+-
+  name: Deploy a mysql DB
+  hosts: db_server
+  roles:
+    - python
+    - mysql_db
+
+-
+  name: Deploy a Web Server
+  hosts: web_server
+  roles:
+    - python
+    - flask_web
+
+-
+  name: Monitor Web Application for 6 Minutes
+  hosts: web_server
+  command: /opt/monitor_webapp.py
+  async: 360
+  poll: 0
+  register: webapp_result
+
+-
+  name: Monitor Database for 6 Minutes
+  hosts: db_server
+  command: /opt/monitor_database.py
+  async: 360
+  poll: 0
+  register: database_result
+
+
+
+
+
+
+
+
+#####################################
+Serial versus parallel execution in Ansible
+
+#######################################
+
+Some useful things for controlling serial/parallel execution in Ansible.
+
+forks=1 can be set so that one host task is executed at a time until completion before the next task is started.
+
+serial can be set per-play so that all tasks run to completion on one host at a time.
+
+Playbook strategies can be set. The default behavior is linear. A serial strategy is also available. Finally, a free strategy is available that allows hosts to continue running subsequent tasks before all hosts completed the same task.
+
+
+
+1. Forks
+Forks are the default number of parallel processes to spawn when communicating with remote hosts. If you are orchestrating your playbook across many servers, then you may have noticed that the number of servers where the playbook executes simultaneously is 5. You can increase this number inside the ansible.cfg file:
+# ansible.cfg 
+forks = 10
+
+or with a command line argument to ansible-playbook with the -f or –forks options. Note that this setting is dependent upon your hardware and software capabilities, such as network bandwidth and memory available on the control machine. Limit your forks according to your available resources.
+2. Async
+If you are executing a playbook with tasks that are not required by later tasks, or are not required until much later, then you can potentially derive a very significant speedup from the use of async.
+
+Tasks in playbooks block by default, which means the connections stay open until the task is done on each node. With async you can launch a task and then immediately move on to the next task in a playbook.
+---  
+- hosts: all 
+  remote_user: root 
+
+tasks: 
+- name: sleep 
+  command: /bin/sleep 50 
+  async: 60 
+  poll: 10 
+- name: not waiting for the device to wake up 
+  command: /bin/move_on
+
+If you truly do not care if and when the task completes, then you can set the poll value to 0 to ”fire and forget.” On the other hand, you can also employ a bit more responsible ”fire and forget” usage if there is a task occurring much later that does require the first task to eventually succeed.
+--- 
+- hosts: all 
+  remote_user: root 
+  tasks: 
+  - name: sleep 
+    command: /bin/sleep 50 
+    async: 60 
+    poll: 0 
+    register: sleeper 
+... 
+  - name: waiting for the device to wake up 
+    command: /bin/waiting_first 
+    async_status: jid={{ sleeper.ansible_job_id }} 
+    register: job_result 
+    until: job_result.finished 
+    retries: 30
+
+This clearly can yield significant execution time improvements, but also requires a certain level of caution and responsibility correlated to the level of ambition implementing this feature.
+3. Free Strategy
+If you are executing a playbook without inter-node dependencies, such as provisioning and configuring a set of web servers, 
+then you probably want each host to execute the playbook as quickly as possible and not wait for the other hosts to finish a task. 
+By default, Ansible uses the linear strategy wherein each task waits for every host to finish before moving on to the next task. However, for many situations we just want each host to finish the playbook as quickly as possible. Ansible 2.0 introduced a new free strategy to achieve this.
+---  
+- name: setup webserver 
+  hosts: webservers 
+  strategy: free 
+  tasks:
+
+For example, if you are installing Apache on ten different servers and one of them has a yum lock, do you really want the other nine servers to wait around on the one server? With this strategy, those other nine servers can finish their tasks without waiting for the one server. For playbooks with inter-node dependencies, this could be dangerous, but for most use cases this is ideal.
+4. Disable Fact Gathering
+When executing a playbook, the facts are gathered and stored in a local memory cache on the control machine. 
+In most instances this is fine, but for large numbers of servers with large sets of facts, this can quickly cause playbook slowdown on the local machine, or even crash the entire playbook due to lack of available memory. If you are not planning on using any facts for a specific playbook task set,
+then it is highly advisable to disable the fact gathering for that set of tasks.
+--- 
+- name: setup postgres 
+  hosts: dbservers 
+  gather_facts: no 
+  tasks:
+
+You can potentially gain massive speedups in playbooks when disabling fact gathering for large sets of servers with large sets of facts. Many playbooks will require facts, but disabling fact gathering for playbooks that do not require them yields significant benefits.
+5. Pipelining
+Pipelining is the modern Ansible method of speeding up your ssh connections across the network to the managed hosts. It replaces the former Accelerated Mode. It reduces the number of ssh operations required to execute a module by executing many Ansible modules without an actual file transfer.
+# ansible.cfg 
+pipelining = True
+
+Although this can result in a very significant performance improvement when enabled, there is a substantial caveat to this feature. When using sudo operations in your playbook, you must first disable requiretty in /etc/sudoers on the managed hosts. Pipelining is disabled by default be- cause requiretty is enabled by default for many distros.
+6. Development Environment
+The previous topics entailed speeding up your Ansible playbook execution, but what about improving your ability to write Ansible playbooks and roles?
+
+The preferred method for developing Ansible playbooks is within the Atom text editor developed by Github Engineering. The auto-indenting and auto- completion it provides are very helpful for developing within Ansible. With the language-ansible package, Atom has complete support for the Ansible language and recognizes all .yml files as Ansible.
+
+Additionally, the linter-ansible-syntax package provides instant feedback on syntax errors, the linter-ansible-linting package provides instant feedback on style warnings, and the ansible-snippets package provides quick module templates within the editor, saving you time typing and looking up documentation.
+With this development environment, your playbooks and roles can be developed two or three times as fast compared to classic text editors like vim or emacs.
+
+
+
+-
+  name: Deploy a web application
+  hosts: app_servers
+  serial: "20%"
+  vars:
+    db_name: employee_db
+    db_user: db_user
+    db_password: Passw0rd
+  tasks:
+    - name: Install dependencies
+      apt: name={{ item }} state=installed
+      with_items:
+       - python
+       - python-setuptools
+       - python-dev
+       - build-essential
+       - python-pip
+       - python-mysqldb
+
+    - name: Install MySQL database
+      apt:
+        name: "{{ item }}"
+        state:  installed
+      with_items:
+       - mysql-server
+       - mysql-client
+
+    - name: Start Mysql Service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create Application Database
+      mysql_db: name={{ db_name }} state=present
+
+    - name: Create Application DB User
+      mysql_user: name={{ db_user }} password={{ db_password }} priv='*.*:ALL' host='%' state='present'
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+       - flask
+       - flask-mysql
+
+    - name: Copy web-server code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start web-application
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+	  
+Task: Use free strategy to accomplish this task.	  
+	  
+	  
+	  
+	  
+-
+  name: Deploy a web application
+  hosts: app_servers
+  vars:
+    db_name: employee_db
+    db_user: db_user
+    db_password: Passw0rd
+  tasks:
+    - name: Install dependencies
+      apt: name={{ item }} state=installed
+      with_items:
+       - python
+       - python-setuptools
+       - python-dev
+       - build-essential
+       - python-pip
+       - python-mysqldb
+
+    - name: Install MySQL database
+      apt:
+        name: "{{ item }}"
+        state:  installed
+      with_items:
+       - mysql-server
+       - mysql-client
+
+    - name: Start Mysql Service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create Application Database
+      mysql_db: name={{ db_name }} state=present
+
+    - name: Create Application DB User
+      mysql_user: name={{ db_user }} password={{ db_password }} priv='*.*:ALL' host='%' state='present'
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+       - flask
+       - flask-mysql
+
+    - name: Copy web-server code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start web-application
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &
+
+# ------------------------------
+#           AFTER
+# ------------------------------
+-
+  name: Deploy a web application
+  hosts: app_servers
+  strategy: free
+  vars:
+    db_name: employee_db
+    db_user: db_user
+    db_password: Passw0rd
+  tasks:
+    - name: Install dependencies
+      apt: name={{ item }} state=installed
+      with_items:
+       - python
+       - python-setuptools
+       - python-dev
+       - build-essential
+       - python-pip
+       - python-mysqldb
+
+    - name: Install MySQL database
+      apt:
+        name: "{{ item }}"
+        state:  installed
+      with_items:
+       - mysql-server
+       - mysql-client
+
+    - name: Start Mysql Service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create Application Database
+      mysql_db: name={{ db_name }} state=present
+
+    - name: Create Application DB User
+      mysql_user: name={{ db_user }} password={{ db_password }} priv='*.*:ALL' host='%' state='present'
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+       - flask
+       - flask-mysql
+
+    - name: Copy web-server code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start web-application
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &	  
+
+
+
+
+
+
+##############################
+Error handling 
+
+##################################
+
+-
+  name: Deploy a web application
+  hosts: app_servers
+  any_errors_fatal: true
+  vars:
+    db_name: employee_db
+    db_user: db_user
+    db_password: Passw0rd
+  tasks:
+    - name: Install dependencies
+      apt: name={{ item }} state=installed
+      with_items:
+       - python
+       - python-setuptools
+       - python-dev
+       - build-essential
+       - python-pip
+       - python-mysqldb
+
+    - name: Install MySQL database
+      apt:
+        name: "{{ item }}"
+        state:  installed
+      with_items:
+       - mysql-server
+       - mysql-client
+
+    - name: Start Mysql Service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Create Application Database
+      mysql_db: name={{ db_name }} state=present
+
+    - name: Create Application DB User
+      mysql_user: name={{ db_user }} password={{ db_password }} priv='*.*:ALL' host='%' state='present'
+
+    - name: Install Python Flask dependencies
+      pip:
+        name: '{{ item }}'
+        state: present
+      with_items:
+       - flask
+       - flask-mysql
+
+    - name: Copy web-server code
+      copy: src=app.py dest=/opt/app.py
+
+    - name: Start web-application
+      shell: FLASK_APP=/opt/app.py nohup flask run --host=0.0.0.0 &
+
+    - name: "Send notification email"
+      mail:
+        to: devops@corp.com
+        subject: Server Deployed!
+        body: Web Server Deployed Successfully
+      ignore_errors: yes
+
+
+
+#############################################################
+Sample playbooks 
+
+---
+- name: install wget
+  yum:
+    name: wget
+    state: present
+
+- name: install openjdk
+  yum:
+    name: java-1.8.0-openjdk
+    state: present
+
+- name: download jenkins.repo
+  get_url:
+    url: http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+    dest: /etc/yum.repos.d/jenkins.repo
+
+- name: import jenkins key
+  rpm_key:
+    state: present
+    key: https://jenkins-ci.org/redhat/jenkins-ci.org.key
+
+- name: install jenkins
+  yum:
+    name: jenkins
+    state: present
+
+- name: start jenkins
+  systemd:
+    name: jenkins
+    state: started
+
+- name: enable jenkins
+  systemd:
+    name: jenkins
+    enabled: true
+
+- name: sleep for 30 seconds and continue with play
+  wait_for: timeout=30
+  delegate_to: localhost
+
+- name: init password jenkin
+  shell: cat /var/lib/jenkins/secrets/initialAdminPassword
+  changed_when: false
+  register: result
+
+- name: print init password jenkins
+  debug:
+    var: result.stdout
+
+
+
+
+
+
+---
+- hosts: tomcat
+  remote_user: root
+  become_method: sudo
+  become: yes
+  tasks:
+    - name: Install java7
+      yum:
+        name: java-1.7.0-openjdk
+        state: present
+    - name: Create Linux Group for Tomcat
+      group:
+         name: tomcat
+    - name: Create Linux User for Tomcat
+      user:
+         name: tomcat
+         groups: 
+           - tomcat
+           - root  
+         home: /usr/share/tomcat
+    - name: Download tomcat archive
+      get_url:
+         url: http://archive.apache.org/dist/tomcat/tomcat-7/v7.0.61/bin/apache-tomcat-7.0.61.tar.gz
+         dest: /opt/apache-tomcat-7.0.61.tar.gz
+    - name: Extract tar file
+      command: chdir=/usr/share /bin/tar xvf /opt/apache-tomcat-7.0.61.tar.gz -C /opt/ creates=/usr/share/tomcat
+      #- name: Symlink install directory
+      #file: src=/opt/apache-tomcat-7.0.61 path=/usr/share/tomcat state=link
+    
+    - name: Change ownership of Tomcat installation
+      file: path=/usr/share/tomcat/ owner=tomcat group=tomcat state=directory recurse=yes
+
+    - name: Configure Tomcat as a service
+      copy: src=tomcat-initscript.sh dest=/etc/init.d/tomcat mode=0755  
+    - name: Start the tomcat
+      service:
+         name: tomcat
+         state: started
+         enabled: yes
+
+
+
+
+
+  
+---
+- name: Disable SELinux startup
+  selinux: state=disabled
+  when: ansible_selinux != false and ansible_selinux['status'] == 'enabled' and ansible_selinux['config_mode'] != 'disabled'
+  tags:
+      - common
+      - selinux
+
+- name: Disable SELinux now
+  command: setenforce 0
+  when: ansible_selinux != false and ansible_selinux['status'] == 'enabled' and ansible_selinux['mode'] != 'permissive'
+  tags:
+      - common
+      - selinux
+
+- name: YUM Uninstall SELinux
+  yum: name=selinux-policy state=absent
+  when: ansible_pkg_mgr == "yum"
+  tags:
+      - common
+      - selinux
+
+- name: APT Uninstall SELinux
+  apt: name=selinux-policy state=absent
+  when: ansible_pkg_mgr == "apt"
+  tags:
+      - common
+      - selinux
+
+
+
+
+	
 
 How to install ansible 
 
