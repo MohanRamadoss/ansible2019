@@ -1,0 +1,3202 @@
+
+
+How to install ansible 
+
+yum install epel-release
+ 
+yum install ansible
+
+# yum -y install python-pip       
+# pip install --upgrade pip      
+# pip install pywinrm             
+# ansible --version  
+
+cat /etc/ansible/hosts
+
+[localhost]
+127.0.0.1 ansible_connection=local
+  
+[web]
+192.168.1.92  ansible_user=centos ansible_ssh_private_key_file=/root/mohanaws.pem
+
+[app]
+192.168.2.248 ansible_user=centos ansible_ssh_private_key_file=/root/mohanaws.pem
+
+
+
+
+
+ansible inventory
+
+cmd
+ansible all -m ping 
+ansible -m setup --tree /tmp/facts localhost
+ 
+
+Ansible - Software Management
+
+
+
+ansible -m yum -a "name=httpd state=present" localhost --become
+- name: install the latest version of Apache
+  yum:
+    name: httpd
+    state: latest
+
+ansible -m yum -a "name=tcpdump state=absent" localhost --become
+
+
+
+---
+# Software playbook
+#
+-  hosts: all
+   become: true
+   gather_facts: yes
+   tasks:
+   - name: Install a list of packages
+     yum:
+      name:
+       - httpd
+       - mod_ssl
+      state: present
+
+
+there is two errors in your config.
+
+yum syntax error
+with_items is deprecated now.
+example:
+
+- name: Install Tools
+  yum:
+   state: present
+   name:
+    - telnet
+    - htop
+
+
+
+ansible-playbook software.yml --become
+
+---
+# Software playbook
+#
+
+- name: Install required software
+  hosts: all
+
+  tasks:
+   - yum: 
+      name: "{{ packages }}"
+      state: present
+     vars:
+       packages:
+        - httpd 
+        - git
+        - tcpdump
+        - php
+
+   - service: 
+      name: httpd
+      state: started
+      enabled: yes
+
+
+Ansible - Modules
+
+Ping Module
+Ping is used when we want to check whether the connection with our hosts defined in the inventory file is established or not.
+
+ansible test-server -m ping -u dev01
+
+setup
+The setup module is used when we want to see the information of all the hosts, their configuration, and detailed information.
+ansible localhost -m setup --tree /tmp/facts
+
+
+Yum Module
+We use the Yum module to install a service.
+
+ansible localhost -m yum -a "name=httpd state=present" --become
+
+Copy Module
+The copy module is often used in writing playbooks when we want to copy a file from a remote server to destination nodes.
+
+For example, suppose we want to copy a file from a remote server to all destination machines.
+ansible localhost -m copy -a "src=/tmp/facts/127.0.0.1 dest=/var/www/html/index.html mode=0600 owner=apache group=apache" --become
+ansible test-server -m copy -a 'src=/home/dev01/app.txt dest=/tmp' -u dev01
+
+
+service 
+
+ansible localhost -m service -a "name=httpd state=started enabled=yes" --become
+
+debug 
+
+file 
+file – Manage files and file properties
+
+- name: Change file ownership, group and permissions
+  file:
+    path: /etc/foo.conf
+    owner: foo
+    group: foo
+    mode: '0644'
+
+
+- name: Create a symbolic link
+  file:
+    src: /file/to/link/to
+    dest: /path/to/symlink
+    owner: foo
+    group: foo
+    state: link
+
+- name: Remove file (delete file)
+  file:
+    path: /etc/foo.txt
+    state: absent
+
+- name: Recursively remove directory
+  file:
+    path: /etc/foo
+    state: absent
+
+command 
+Execute commands on targets
+
+- name: return motd to registered var
+  command: cat /etc/motd
+  register: mymotd
+  
+# 'cmd' is module parameter
+- name: Run command if /path/to/database does not exist (with 'cmd' parameter).
+  command:
+    cmd: /usr/bin/make_database.sh db_user db_name
+    creates: /path/to/database
+	
+
+Shell Module
+
+When we want to run UNIX commands then we use shell module
+Execute commands on the shell.
+shell :  health.sh arg1 arg1 >> health.log
+
+ansible test-servers -m shell -a 'ls -la' -u ec2-user
+
+
+Debug Module
+
+To print a msg on hosts we use Debug module.
+ansible test-servers -m debug -a 'msg=Hello' -u ec2-user
+
+
+
+lineinfile – Manage lines in text files
+
+# NOTE: Before 2.3, option 'dest', 'destfile' or 'name' was used instead of 'path'
+- name: Ensure SELinux is set to enforcing mode
+  lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: SELINUX=enforcing
+
+- name: Ensure the default Apache port is 8080
+  lineinfile:
+    path: /etc/httpd/conf/httpd.conf
+    regexp: '^Listen '
+    insertafter: '^#Listen '
+    line: Listen 8080
+
+- name: Ensure we have our own comment added to /etc/services
+  lineinfile:
+    path: /etc/services
+    regexp: '^# port for http'
+    insertbefore: '^www.*80/tcp'
+    line: '# port for http by default'
+	
+# NOTE: Fully quoted because of the ': ' on the line. See the Gotchas in the YAML docs.
+- name: Validate the sudoers file before saving
+  lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: '^%ADMIN ALL='
+    line: '%ADMIN ALL=(ALL) NOPASSWD: ALL'
+    validate: /usr/sbin/visudo -cf %s
+
+
+
+template
+
+template – Template a file out to a remote server
+
+- name: Copy a version of named.conf that is dependent on the OS. setype obtained by doing ls -Z /etc/named.conf on original file
+  template:
+    src: named.conf_{{ ansible_os_family }}.j2
+    dest: /etc/named.conf
+    group: named
+    setype: named_conf_t
+    mode: 0640
+
+- name: Update sshd configuration safely, avoid locking yourself out
+  template:
+    src: etc/ssh/sshd_config.j2
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: '0600'
+    validate: /usr/sbin/sshd -t -f %s
+    backup: yes
+
+
+synchronize – 
+A wrapper around rsync to make common tasks in your playbooks quick and easy
+Synopsis	
+
+- name: Synchronization of src on the control machine to dest on the remote hosts
+  synchronize:
+    src: some/relative/path
+    dest: /some/absolute/path
+	
+
+- name: Synchronization using rsync protocol on delegate host (pull)
+  synchronize:
+    mode: pull
+    src: rsync://somehost.com/path/
+    dest: /some/absolute/path/
+  delegate_to: delegate.host	
+
+
+
+get_url – Downloads files from HTTP, HTTPS, or FTP to node
+
+- name: Download foo.conf
+  get_url:
+    url: http://example.com/path/file.conf
+    dest: /etc/foo.conf
+    mode: '0440'
+
+- name: < Fetch file that requires authentication.
+        username/password only available since 2.8, in older versions you need to use url_username/url_password
+  get_url:
+    url: http://example.com/path/file.conf
+    dest: /etc/foo.conf
+    username: bar
+    password: '{{ mysecret }}'
+
+
+Git
+The git module manages git checkouts of repositories to deploy files or software.
+
+Example 1:
+# Example Create git archive from repo
+- git:
+    repo: https://github.com/ansible/ansible-examples.git
+    dest: /src/ansible-examples
+    archive: /tmp/ansible-examples.zip
+Example 2:
+- git:
+    repo: https://github.com/ansible/ansible-examples.git
+    dest: /src/ansible-examples
+    separate_git_dir: /src/ansible-examples.git
+This clones a repo with a separate Git directory.
+
+
+
+Archive
+The archive module creates a compressed archive of one or more files. By default, it assumes the compression source exists on the target.
+
+Example 1:
+- name: Compress directory /path/to/foo/ into /path/to/foo.tgz
+  archive:
+    path: /path/to/foo
+    dest: /path/to/foo.tgz
+Example 2:
+- name: Create a bz2 archive of multiple files, rooted at /path
+  archive:
+    path:
+   - /path/to/foo
+    - /path/wong/foo
+    dest: /path/file.tar.bz2
+    format: bz2
+	
+	
+dnf – Manages packages with the dnf package manager
+
+- name: install the latest version of Apache and MariaDB
+  dnf:
+    name:
+      - httpd
+      - mariadb-server
+    state: latest
+
+
+- name: install a modularity appstream with defined stream
+  dnf:
+    name: '@postgresql:9.6'
+    state: present
+	
+	
+
+blockinfile – Insert/update/remove a text block surrounded by marker lines
+
+This module will insert/update/remove a block of multi-line text surrounded by customizable marker lines.
+
+
+# Before Ansible 2.3, option 'dest' or 'name' was used instead of 'path'
+- name: Insert/Update "Match User" configuration block in /etc/ssh/sshd_config
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    block: |
+      Match User ansible-agent
+      PasswordAuthentication no
+	  
+	  
+- name: Add mappings to /etc/hosts
+  blockinfile:
+    path: /etc/hosts
+    block: |
+      {{ item.ip }} {{ item.name }}
+    marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item.name }}"
+  loop:
+    - { name: host1, ip: 10.10.1.10 }
+    - { name: host2, ip: 10.10.1.11 }
+    - { name: host3, ip: 10.10.1.12 }
+
+
+firewalld – Manage arbitrary ports/services with firewalld
+
+
+- name: Redirect port 443 to 8443 with Rich Rule
+  firewalld:
+    rich_rule: rule family=ipv4 forward-port port=443 protocol=tcp to-port=8443
+    zone: public
+    permanent: yes
+    immediate: yes
+    state: enabled
+
+- firewalld:
+    rich_rule: rule service name="ftp" audit limit value="1/m" accept
+    permanent: yes
+    state: enabled
+
+yum_repository – Add or remove YUM repositories
+- name: Add repository
+  yum_repository:
+    name: epel
+    description: EPEL YUM repo
+    baseurl: https://download.fedoraproject.org/pub/epel/$releasever/$basearch/
+	
+
+
+
+wait_for – Waits for a condition before continuing
+
+- name: Wait for port 8000 of any IP to close active connections, ignoring connections for specified hosts
+  wait_for:
+    host: 0.0.0.0
+    port: 8000
+    state: drained
+    exclude_hosts: 10.2.1.2,10.2.1.3
+
+# Same as above but you normally have ansible_connection set in inventory, which overrides 'connection'
+- name: Wait 300 seconds for port 22 to become open and contain "OpenSSH"
+  wait_for:
+    port: 22
+    host: '{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}'
+    search_regex: OpenSSH
+    delay: 10
+  vars:
+    ansible_connection: local
+	
+	
+	
+cron – Manage cron.d and crontab entries
+
+- name: Ensure a job that runs at 2 and 5 exists. Creates an entry like "0 5,2 * * ls -alh > /dev/null"
+  cron:
+    name: "check dirs"
+    minute: "0"
+    hour: "5,2"
+    job: "ls -alh > /dev/null"
+
+find – Return a list of files based on specific criteria
+
+- name: Recursively find /tmp files older than 2 days
+  find:
+    paths: /tmp
+    age: 2d
+    recurse: yes	
+
+- name: Find /var/log files equal or greater than 10 megabytes ending with .old or .log.gz
+  find:
+    paths: /var/log
+    patterns: '*.old,*.log.gz'
+    size: 10m
+
+
+replace – Replace all instances of a particular string in a file using a back-referenced regular expression
+
+- name: Long form task does not
+  replace:
+    path: /etc/hosts
+    regexp: '\b(localhost)(\d*)\b'
+    replace: '\1\2.localdomain\2 \1\2'
+
+- name: Explicitly specifying positional matched groups in replacement
+  replace:
+    path: /etc/ssh/sshd_config
+    regexp: '^(ListenAddress[ ]+)[^\n]+$'
+    replace: '\g<1>0.0.0.0'
+
+- name: Explicitly specifying named matched groups
+  replace:
+    path: /etc/ssh/sshd_config
+    regexp: '^(?P<dctv>ListenAddress[ ]+)(?P<host>[^\n]+)$'
+    replace: '#\g<dctv>\g<host>\n\g<dctv>0.0.0.0'
+	
+	
+sysctl – Manage entries in sysctl.conf
+
+# Set vm.swappiness to 5 in /etc/sysctl.conf
+- sysctl:
+    name: vm.swappiness
+    value: '5'
+    state: present
+
+# Remove kernel.panic entry from /etc/sysctl.conf
+- sysctl:
+    name: kernel.panic
+    state: absent
+    sysctl_file: /etc/sysctl.conf
+
+
+group – Add or remove groups
+
+- name: Ensure group "somegroup" exists
+  group:
+    name: somegroup
+    state: present
+
+
+Playbook settings
+
+hosts 
+Specify the group name specified in the Ansible hosts file.
+
+
+remote_user 
+Specify the remote execution user.
+Since Ansible is an SSH connection, it is necessary to set key authentication for the executing user.
+
+sudo   replace with become 
+
+sudo instead of the execution, using the su If you want to change the authority, become_methodin suspecifying the.
+By the way, Default of become_methodis, sudohas become.
+
+vars
+Declare variables here that are set when executing a module (task).
+
+handlers
+task This is the last job that is executed only once when the status is changed in (when a changed event occurs).
+
+
+tasks
+This item is the key to playbook. List the modules to be executed.
+
+when
+The task is executed only when the specified condition is met.
+
+
+with_items
+Loop processing.
+
+
+until
+Loop processing.
+until Condition that exits from loop (in the following cases, loop until “OK” is output to the standard output)
+retries Is the number of retries
+delay Is the number of seconds to sleep
+
+
+
+import_playbook
+Call the specified file as a component.
+Creating and including subdivided playbooks for each task requires less impact if each playbook is modified.
+
+
+name
+Used for comments on each item. If you briefly describe the outline of the playbook etc., it will be easier to understand later.
+
+msg
+
+Output a message to standard output. Useful as a pointer for debugging.
+
+
+debug
+The contents can be confirmed if it is given when debugging.
+The following example registerchecks whether a variable is assigned to.
+Debugging is also possible when ansible-playbook command is executed -vor -vvwhen -vvvgiven.
+
+
+
+
+
+
+
+##############
+create a user 
+
+ansible-playbook users.yml --become
+
+---
+# Create required users
+
+- name: Create required users
+  hosts: all
+  vars:
+   usernames:  
+    - devs
+    - security
+    - admins
+
+
+  tasks:
+   - group:
+      name: web
+      state: present
+
+   - user:
+      name: "{{ item }}"
+      state: present
+      groups: web
+      append: yes
+     with_items: "{{ usernames }}"
+
+
+
+Write a Playbook That Removes `tcpdump` When a Server's Name Does Not Contain `admin
+
+# Variables playbook
+- name: This playbook will remove tcpdump (if installed) from servers without admin in their hostnames
+  hosts: all
+  become: yes
+  tasks:
+   - name: Remove tcpdump from all but admin servers
+     yum:
+      name: tcpdump
+      state: absent
+     when: "'admin' not in inventory_hostname"
+
+   - name: Make sure git is installed only on Red Hat servers
+     yum:
+      name: git
+      state: present
+     when: ansible_facts['os_family'] == 'RedHat'
+	 
+
+
+
+for i in webserver dbserver controller;
+   do ssh dev01@$i "sudo tar -czf messages.tar.gz /var/log/messages";
+done
+
+ansible -m fetch -a "src=/home/dev01/messages.tar.gz dest=/tmp/messages" all
+
+
+
+
+Verify Connectivity in the Environment
+On the command line run ansible -m ping all.
+
+
+Install httpd
+
+Your playbook, apache.yml should look something like this:
+
+---
+# Common Modules Playbook
+#
+
+- name: Common Modules Playbook
+  become: yes
+  hosts: webserver
+
+  tasks:
+   - name: Install httpd on webserver
+     yum:
+      name: httpd
+      state: present
+	  
+   - name: Start the httpd service
+     service:
+      name: httpd
+      state: started
+      enabled: yes
+ 
+   - name: Create index.html
+     file:
+      path: /var/www/html/index.html
+      state: touch  
+
+
+
+
+
+
+
+Play with Tasks & Handlers
+
+---
+
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Install the latest version of Apache
+      yum: name=httpd state=latest update_cache=yes
+      ignore_errors: yes
+      notify: start Apache
+
+  handlers:
+    - name: start Apache
+      service: name=httpd enabled=yes state=started
+	  
+	  
+
+
+
+
+
+################################################################
+
+Conditional Execution Using Facts and When Statement
+
+
+
+
+
+
+
+
+create a dba user  copy the required file 
+
+---
+
+- name: DB server playbook
+  become: yes
+  hosts: dbservers
+
+  tasks:
+   - name: Add the 'dba' user to the dbservers
+      user:
+       name: dba
+	   
+  - name: Copy required DBA files
+     copy:
+      src: /root/DBAstuff.txt
+      dest: /home/dba/
+      owner: dba
+      group: dba
+      mode: 0600
+	  
+
+Clone the Ansible Git Repository into /opt on adminservers
+
+Your admin.yml playbook will look something like this:
+
+---
+
+- name: Use git to clone the Ansible repo
+  hosts: admins
+  become: yes
+
+  tasks:
+   - name: Install git
+     yum:
+      name: git
+      state: present
+
+   - name: Use the git module
+     git:
+      repo: https://github.com/ansible/ansible.git
+      dest: /opt
+	  
+	  
+
+
+
+---
+ - hosts: all
+   tasks:
+   - name: hostname
+     debug:
+       var=ansible_hostname
+
+   - name: date and time
+     vars:
+      msg: |
+       Date: {{ ansible_date_time.date }}
+       Timezone: {{ ansible_date_time.tz }}
+     debug:
+      msg: "{{ msg.split('\n') }}"
+
+   - name: network info
+     vars:
+      msg: |
+       All Interface List: {{ ansible_interfaces }}
+       All IP: {{ ansible_all_ipv4_addresses }}
+       Gateway: {{ ansible_default_ipv4.gateway }}
+       Eth0 MAC: {{ ansible_eth0.macaddress }}
+     debug:
+      msg: "{{ msg.split('\n') }}"
+
+   - name: OS and Kernel info
+     vars:
+      msg: |
+       Distribution: {{ ansible_distribution }}
+       Release: {{ ansible_distribution_release }}
+       Distribution Version: {{ ansible_distribution_version }}
+       Kernel: {{ ansible_kernel }}
+       Architecture: {{ ansible_architecture }}
+     debug:
+      msg: "{{ msg.split('\n') }}"
+
+   - name: HW info
+     vars:
+      msg: |
+       CPU: {{ ansible_processor }}
+       CPU Core: {{ ansible_processor_cores }}
+       RAM: {{ ansible_memtotal_mb }}
+       SWAP: {{ ansible_memory_mb.swap.total }}
+     debug:
+
+      msg: "{{ msg.split('\n') }}"
+	  
+	  
+
+Check for the Existence of /root/archive.tar and Create It If It Doesn't
+
+This part of the playbook should look something like this:
+
+- name: Common Modules Playbook
+  become: yes
+  hosts: webserver
+
+  tasks:
+   - name: Install httpd on webserver
+     yum:
+      name: httpd
+      state: present
+      ignore_errors: true
+
+   - name: Check for archive file
+     command: ls /root/archive.tar
+     register: check_result
+     ignore_errors: true
+
+   - name: Touch archive file
+     file:
+      path: /root/archive.tar
+      state: touch
+     when: check_result is failed	 
+	 
+
+
+
+Add inlinefile module to  insert the index.html 
+
+
+- name: Install httpd
+  hosts: webserver
+  become: yes
+
+  tasks:
+   - name: httpd install
+     yum:
+      name: httpd
+      state: present
+
+   - name: Service management for httpd
+     service:
+      name: httpd
+      state: started
+      enabled: yes   
+
+   - name: Create and populate index.html
+     lineinfile:
+      path: /var/www/html/index.html
+      line: Mohan webserver.
+      create: yes
+      owner: apache
+      group: apache
+      mode: 0644    
+	  
+	  
+
+- name: DB server management
+  hosts: dbservers
+  become: yes
+
+  tasks:
+   - name: Add user
+     user:
+      name: mysqld
+      state: present
+
+   - name: Copy DB user data
+     copy:
+      src: /root/dba.txt
+      dest: /home/mysqld/dba.txt
+      owner: mysqld
+      group: mysqld
+      mode: 0600   
+
+
+Gather all the redhat machine ip address 
+ 
+	  
+
+- name: Red Hat specific configuration
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  tasks:
+   - name: Populate file with IP addresses
+     lineinfile:
+      path: /root/addresses
+      line: "{{ ansible_facts['all_ipv4_addresses'] }}"
+      create: yes
+     when: ansible_os_family == "RedHat"
+
+
+
+---
+ - hosts: all
+
+
+   tasks:
+   - name:  echo distribution - CentOS
+     command: echo CentOS-PC
+     when: ansible_distribution == "CentOS"  and ansible_architecture == "x86_64"
+     register: centos
+
+
+   - name:  echo distribution - Ubuntu
+     command: echo Ubuntu-PC
+     when: ansible_distribution == "Ubuntu"  and ansible_architecture == "x86_64"
+     register: ubuntu
+
+
+   - debug: var={{ item }}
+     loop:
+       - centos.stdout
+       - ubuntu.stdout
+
+
+
+Firewall httpd open  
+
+---
+- name: webserver firewall rules
+  hosts: webservers
+  become: yes
+
+  tasks:
+   - name: ssh firewall rules
+     firewalld:
+      permanent: yes
+      state: enabled
+      immediate: yes
+      service: ssh
+
+   - name: http firewall rules 
+     firewalld:
+      permanent: yes
+      state: enabled
+      immediate: yes
+      service: http
+	  
+	  
+	  
+	  
+Firewall postgresql 
+
+---
+ - name: db firewall rules
+   hosts: dbservers
+   become: yes
+
+   tasks:
+   - name: ssh firewall rules
+     firewalld:
+      permanent: yes
+      state: enabled
+      immediate: yes
+      service: ssh
+
+   - name: postgresql firewall rules 
+     firewalld:
+      permanent: yes
+      state: enabled
+      immediate: yes
+      service: postgresql 
+	  
+	  
+Selinux enablement
+---
+- name: SELinux
+  hosts: all
+  become: yes
+
+  tasks:
+   - name: Enable SELinux
+     selinux:
+      state: enforcing
+      policy: targeted
+
+
+deploy script and execute the scritps 
+
+
+- name: copy db script
+  hosts: dbservers
+  become: yes
+
+  tasks: 
+   - name: copy deploy script
+     script: /root/deploy.sh
+
+
+- name: copy db script
+  hosts: dbservers
+  become: yes
+
+  tasks: 
+   - name: copy deploy script
+#    script: /root/deploy.sh
+     copy:
+      src: /root/deploy.sh
+      dest: /opt/deploy.sh
+      owner: root
+      group: root
+      mode: 0755
+
+   - name: Execute the script
+     command: sh /opt/deploy.sh
+	 
+
+
+
+ ---
+
+- name: copy webapp
+  hosts: webservers
+  become: yes
+
+  tasks:
+   - name: install webapp
+     copy:
+      src: /root/index2.html
+      dest: /var/www/html/index.html
+      owner: apache
+      group: apache
+      mode: 0644
+
+
+
+
+create a users and groups 
+
+---
+- name: verify group exists
+  hosts: all
+  become: yes
+
+  tasks:
+   - group: 
+      gid: 2000
+      name: adminbackup
+      state: present
+   - group:
+      gid: 2001
+      name: new_backup
+      state: present
+   - user:
+      name: old_backup
+      state: absent
+   - user:
+      name: servernew_backup
+      uid: 2003
+      shell: /bin/false
+      password_lock: yes
+      groups: adminbackup, servernew_backup
+	  
+	  
+
+start services on two servers 
+
+
+- name: Start postgresql
+  hosts: dbserver:controllerserver
+  become: yes
+
+  tasks:
+  - systemd:
+     name: postgresql
+     state: started
+     no_block: yes
+
+
+
+
+create a disk and attach to the machine 
+
+
+---
+- name: Disks playbook
+  hosts: dbservers
+  become: yes
+  tasks:
+   - name: hostname
+     debug:
+       var=ansible_hostname
+
+   - name: Create the Volume Group
+     lvg:
+      vg: RHCE
+      pvs: /dev/xvdg
+
+   - name: Create Logical Volume
+     lvol:
+      lv: AppDB2
+      vg: RHCE
+      size: 10G
+      pvs: /dev/xvdg
+      state: present   
+
+   - name: Format the disk
+     filesystem:
+      dev: /dev/RHCE/AppDB2
+      fstype: xfs
+  
+   - name: Mount the disk
+     mount:
+      fstype: xfs
+      src: /dev/RHCE/AppDB2
+      state: mounted
+      path: /mnt/appdb2
+	  
+
+
+######################################################################
+
+
+create a disk and attach to the machine 
+
+
+---
+- name: Disks playbook
+  hosts: dbservers
+  become: yes
+  tasks:
+   - name: hostname
+     debug:
+       var=ansible_hostname
+
+   
+
+   - name: Create the Volume Group
+     lvg:
+      vg: appvg
+      pvs: /dev/xvdf
+
+   - name: Create Logical Volume
+     lvol:
+      lv: AppDB2
+      vg: appvg
+      size: 10G
+      pvs: /dev/xvdf
+      state: present   
+
+   - name: Format the disk
+     filesystem:
+      dev: /dev/appvg/AppDB2
+      fstype: xfs
+  
+   - name: Mount the disk
+     mount:
+      fstype: xfs
+      src: /dev/appvg/AppDB2
+      state: mounted
+      path: /mnt/appdb2
+	  
+
+######################################
+
+---
+- name: Disks playbook
+  hosts: web
+  become: yes
+  tasks:
+   - name: hostname
+     debug:
+       var=ansible_hostname
+
+   - name: yum install lvm package
+     when: ansible_os_family == "RedHat"
+     yum:
+        name: lvm2 
+        state: present
+
+   - name: Create the Volume Group
+     lvg:
+      vg: appvg
+      pvs: /dev/xvdf
+
+   - name: Create Logical Volume
+     lvol:
+      lv: AppDB2
+      vg: appvg
+      size: 10G
+      pvs: /dev/xvdf
+      state: present   
+
+   - name: Format the disk
+     filesystem:
+      dev: /dev/appvg/AppDB2
+      fstype: xfs
+  
+   - name: Mount the disk
+     mount:
+      fstype: xfs
+      src: /dev/appvg/AppDB2
+      state: mounted
+      path: /mnt/appdb2
+
+
+
+
+
+
+#########################################################################
+
+
+
+- name: Copy data dev stuff and inflate data and dev stuff
+  hosts: dbservers
+  become: yes
+
+  tasks:
+  - unarchive:
+     src: /root/file.tar.gz
+     dest: /opt/
+
+ - unarchive:
+   src: /tmp/devstuff.tar.gz
+   dest: /opt/
+   remote_src: yes 
+   
+  - archive:
+    path: /var/log/messages
+    dest: /tmp/messages.tar.gz
+
+  - fetch:
+     src: /tmp/messages.tar.gz
+     dest: /tmp/
+	  
+
+###############################################
+How to run tasks in parallel?   What if I wan’t to wait until ALL my async’ed/parallelized tasks are finished?
+
+- name: Example of async and poll
+  hosts: all
+  tasks:
+    - name: Run scripts
+      command: "/tmp/{{ item }}.sh"
+      async: 100
+      poll: 25
+      with_items:
+        - fill_database
+        - create_users
+      register: result
+ 
+
+Parallel Playbook Execution
+
+memcache.yml
+- name: Install memcache
+  apt: name=memcached update_cache=yes
+- name: Ensure memcache is started.
+  service: name=memcached state=started
+  
+mongodb.yml
+- name: Install mongodb
+ apt: name=mongodb update_cache=yes
+- name: Ensure mongodb is started.
+ service: name=mongodb state=started
+
+provision.yml:
+- hosts: mongodb:memcache
+  gather_facts: no
+  strategy: free
+  tasks:
+    - include: memcache.yml
+      when:  "'memcache' in group_names"
+- include: mongodb.yml
+      when: "'mongodb' in group_names"
+- hosts: app
+  tasks:
+    ....
+	
+---
+
+- name: Run tasks in parallel
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Pretend to create instances
+      command: "sleep {{ item }}"  # Instead of calling a long running operation at a cloud provider, we just sleep.
+      with_items:
+        - 6
+        - 8
+        - 7
+      register: _create_instances
+      async: 600  # Maximum runtime in seconds. Adjust as needed.
+      poll: 0  # Fire and continue (never poll)
+
+    - name: Wait for creation to finish
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: _jobs
+      until: _jobs.finished
+      delay: 5  # Check every 5 seconds. Adjust as you like.
+      retries: 10  # Retry up to 10 times. Adjust as needed.
+      with_items: "{{ _create_instances.results }}"
+
+
+
+###############################################
+How to template the ansible play books 
+
+
+###############################################
+	  
+Encrypt Playbook using Ansible Vault
+
+python -c "from passlib.hash import sha512_crypt; import getpass; print sha512_crypt.encrypt(getpass.getpass())"
+Password:
+$6$rounds=656000$AmI1LlHNw3l3F7Xb$fDeo0QBtkMkMV02dmDQEn2fS588QZ4R/bDz81FPHJ4Jx2fi7lBE/RS1xbSMYmxD60iDbAqwdaosnC00oG/Vo0/
+
+ansible-vault create reset_root_password.yaml
+ansible-vault edit reset_root_password.yaml
+ansible-playbook  reset_root_password.yaml --ask-vault-pass -vv
+ansible-vault view reset_root_password.yaml
+ansible-vault decrypt  reset_root_password.yaml
+cat  vault_pass
+test123
+ 
+ansible-vault view --vault-id  vault_pass  reset_root_password.yaml
+
+---
+
+ - hosts: web
+   become: yes
+   gather_facts: no
+
+   tasks:
+    -  name: Reset the account password
+       user:
+         name: root
+         update_password: always
+         password: test123
+
+
+###############################################
+
+Create a file in Ansible with timestamp: 
+
+---
+- hosts: localhost
+  become: no
+  gather_facts: yes
+
+  tasks:
+   - name: Display the availble timestamp format in Ansible
+     debug:
+      var=ansible_date_time
+
+
+---
+- hosts: localhost
+  become: no
+  gather_facts: yes
+
+  tasks:
+   - name: Display the available timestamp format in Ansible
+     shell: cp /etc/nsswitch.conf  /etc/nsswitch.conf.{{ ansible_date_time.iso8601 }}
+
+   - name: Display the newly created file
+     shell: ls -lrt /etc/nsswitch.conf.{{ ansible_date_time.iso8601 }}
+     register: LISTFILE
+
+   - debug: msg={{ LISTFILE.stdout }}
+
+
+##########################################
+
+Store Playbook Result in Variable 
+
+[root@ip-192-168-3-155 demoplay]# cat df.yml
+---
+
+ - hosts: all
+   become: yes
+
+   tasks:
+     - name: Execute /boot usage on Hosts
+       command: 'df -h /boot'
+       register: dfboot
+
+     - debug: var=dfboot.stdout
+     - debug: var=dfboot.stdout_lines
+
+
+ 
+ 
+
+
+###################################
+
+
+
+Prior to Ansible engine 2.7, To reboot the target hosts, we need to define a block of code to reboot the server and wait until the hosts to come back. Most of the time. 
+making the configuration changes or installing the OS patches which require a reboot. Post reboot, we might need to get few commands output to validate those changes. 
+we will walk through how Ansible 2.7 engine codes reduce the block of code.
+
+
+
+
+
+---
+- hosts: web
+  become: yes
+
+  tasks:
+   - name: Check the uptime prior reboot
+     shell: uptime
+     register: UPTIME_PRE_REBOOT
+
+   - debug: msg={{UPTIME_PRE_REBOOT.stdout}}
+
+   - name: Reboot node and stop polling.
+     shell: reboot
+     async: 10 # Do not care for 10 sec
+     poll: 0 # Fire & Forget
+
+   - name: wait for host to finish reb00t
+     wait_for:
+      port: "{{ (ansible_port|default(ansible_ssh_port))|default(22) }}"
+      host: '{{ (ansible_ssh_host|default(ansible_host))|default(inventory_hostname) }}'
+      search_regex: OpenSSH
+      delay: 10  # Do not check for at least 10 sec
+     connection: local
+
+   - name: Check the uptime post reboot
+     shell: uptime
+     register: UPTIME_POST_REBOOT
+
+   - debug: msg={{UPTIME_POST_REBOOT.stdout}}
+   
+   
+
+
+---
+- hosts: web
+  become: yes
+
+  tasks:
+   - name: Check the uptime
+     shell: uptime
+     register: UPTIME_PRE_REBOOT
+
+   - debug: msg={{UPTIME_PRE_REBOOT.stdout}}
+
+   - name: Unconditionally reboot the machine with all defaults
+     reboot:
+
+   - name: Check the uptime after reboot
+     shell: uptime
+     register: UPTIME_POST_REBOOT
+
+   - debug: msg={{UPTIME_POST_REBOOT.stdout}}
+
+
+
+
+
+If you get shut down command not found, you have the following options.
+
+Update Ansible Engine to 2.8. (# yum update ansible) and follow from step number 3.
+Use legacy reboot method.
+ 
+
+If you are running with Ansible engine 2.8, then tweak the playbook like below.
+
+ 
+
+3. In Ansible 2.8, Ansible’s reboot module had the option to include the command search path as argument. In my hosts, shutdown command has been kept in /usr/sbin/custom/
+
+---
+- hosts: all
+  become: yes
+
+  tasks:
+   - name: Check the uptime
+     shell: uptime
+     register: UPTIME_PRE_REBOOT
+
+   - debug: msg={{UPTIME_PRE_REBOOT.stdout}}
+
+   - name: Unconditionally reboot the machine with all defaults
+     reboot:
+         search_paths: /usr/sbin/custom/
+
+   - name: Check the uptime after reboot
+     shell: uptime
+     register: UPTIME_POST_REBOOT
+
+   - debug: msg={{UPTIME_POST_REBOOT.stdout}}
+
+
+
+###################################
+
+Ansible tags 
+
+https://github.com/88K/tutorials/tree/b79969f2138c3ac50dc4589d6638e321629ba0c8
+
+
+
+#############################################
+
+Conditional Execution Using Facts and When Statement
+
+
+---
+- name: Playbook to install apazhe in different OS falvour.
+  hosts: web
+  become: yes
+  tasks:
+    - name: Install apache2 Debian
+      when: ansible_os_family == "Debian"
+      apt:
+        name: apache2
+        state: present
+        update_cache: yes
+            
+    - name: Debian service restart
+      when: ansible_os_family == "Debian"
+      service:
+        name: apache2
+        state: restarted
+        enabled: yes
+            
+    - name: Install httpd Red Hat
+      when: ansible_os_family == "RedHat"
+      yum:
+        name: httpd
+        state: present
+        
+    - name: Redhat service restart
+      when: ansible_os_family == "RedHat"
+      service:
+        name: httpd
+        state: restarted
+        enabled: yes
+            
+			
+##################################################################			
+
+---
+ - name: update centos linux
+   hosts: web
+   become: yes
+   tasks: 
+    - name: Update all pkgs - RHEL-Based
+      when:
+       - ansible_os_family == "RedHat"
+      yum:
+       name: "*"
+       state: latest
+      tags:
+        - yum
+      failed_when: false
+    
+    - name: add docker repository
+      when: ansible_os_family == "RedHat"
+      command: /usr/bin/yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      tags:
+       - yum
+       - docker
+  
+    - name: Install base pkgs - RHEL-Based
+      when:
+      - ansible_os_family == "RedHat"
+      yum:
+       state: present
+       name:
+        - telnet
+        - htop
+        - vim
+        - git
+        - wget
+        - openssh
+        - net-tools
+      tags:
+       with_pkg
+      failed_when: false     
+
+    - name: install docker ce
+      when: ansible_os_family == "RedHat"
+      yum:
+       name: docker-ce
+       state: latest
+       tags:
+        - yum
+        - docker
+
+
+#############################################
+Include tasks
+
+
+The playbook written in above example to install httpd in different OS flavour can be written in another way.
+
+# We can split them into 3 different playbooks.
+
+
+#Debian.yml which will have tasks only for debian falvoured OS
+$vim debian.yml
+
+---
+- name: Install apache2 Debian
+  apt:
+    name: apache2
+    state: present
+    update_cache: yes
+            
+- name: Debian service restart
+  service:
+    name: apache2
+    state: restarted
+    enabled: yes
+
+#Redhat.yml which will have tasks only for RHEL flavoured OS.
+
+$vim redhat.yml
+
+---
+- name: Install httpd Red Hat
+  yum:
+    name: httpd
+    state: present
+        
+- name: Redhat service restart
+  service:
+    name: httpd
+    state: restarted
+    enabled: yes
+
+
+
+$vim main.yml
+
+---
+- name: Install apache on multiple OS flavour
+  become: yes
+  hosts: web
+  tasks:
+    - include_tasks: debian.yml
+      when: ansible_os_family == "Debian"
+    - include_tasks: redhat.yml
+      when: ansible_os_family == "RedHat"
+
+
+#########################################################
+
+Debug module and Register keyword
+
+
+root@ip-192-168-3-155 demoplay]# cat df.yml
+---
+
+ - hosts: all
+   become: yes
+
+   tasks:
+     - name: Execute /boot usage on Hosts
+       command: 'df -h /boot'
+       register: dfboot
+
+     - debug: var=dfboot.stdout
+     - debug: var=dfboot.stdout_lines
+
+
+################################################################
+
+
+Playbook to restart service only when a change is applied.
+
+restart.yml
+
+
+---
+- name: Restart httpd only when a change is applied.
+  hosts: web
+  become: yes
+  tasks:
+    - name: Installing LAMP
+      yum:
+        name:
+          - httpd
+          - php
+          - php-mysql
+        state: present
+      register: installation_status
+    
+    - name: Creating PHP file
+      copy:
+        content: '</php phpinfo(); ?>'
+        dest: /var/www/html/index.php
+      register: php_content_status
+        
+    - name: Restarting httpd
+      service:
+        name: httpd
+        state: restarted
+      when: installation_status.changed == true or php_content_status.changed == true
+
+
+
+
+######################################################
+
+Jinja2 Templates (template module)
+
+#Here we use a template file(sample.j2) and create it in a VM using the name variable.
+
+---
+- hosts: web
+  vars:
+    name: web
+  tasks:
+    - name: "Template Demo"
+      template: 
+         src: sample.j2
+         dest: /tmp/{{name}}.txt
+		 
+		 
+################################################################################
+https://www.linuxtopic.com/2019/02/ansible-playbook-get-hosts-information.html
+
+
+Inventory for the server 
+
+---
+ - hosts: all
+   gather_facts: no
+   become: yes
+   become_method: sudo
+   tasks:
+
+     - name: Getting os version
+       shell: cat /etc/*-release | grep "PRETTY_NAME" | sed 's/PRETTY_NAME=//g' | sed 's/"//g'
+       register: os
+
+     - name: Getting hostname version
+       shell: hostname
+       register: hostname
+
+     - name: Getting uname version
+       shell: uname -r
+       register: uname
+  
+     - name: Getting uname arc
+       shell: uname -p
+       register: arc
+  
+     - name:
+       shell: cat /etc/redhat-release
+       register: release
+
+     - name:
+       shell: rpm -qa | grep curl | grep -v lib | grep -v python
+       register: curl
+  
+
+     - name: create some file
+       local_action: file path=/tmp/rhelroot  state=absent mode=0755
+       delegate_to: 192.168.3.155
+ 
+     - name: create some file
+       local_action: file path=/tmp/rhelroot  state=touch mode=0755
+       delegate_to: 192.168.3.155
+
+     - name: Writing gathered data locally to file.
+       local_action: lineinfile line="{{ hostname.stdout, os.stdout,  uname.stdout, arc.stdout,  curl.stdout   }}" insertafter=EOF dest=/tmp/rhelroot
+
+
+
+##################################################
+Waiting with Ansible, pausing a Playbook 
+
+---
+- hosts: all
+  tasks:
+    - name: check date
+      command: date
+      register: out
+    - debug: msg={{out.stdout}}
+ 
+    - pause: seconds=3
+ 
+    - name: check date
+      command: date
+      register: out
+    - debug: msg={{out.stdout}}
+
+###################################################
+https://www.theurbanpenguin.com/managing-users-in-ansible/
+
+https://github.com/jmutkawoa/My-Ansible-Playbooks
+
+https://www.linuxsysadmins.com/creating-logical-volume-based-file-system-using-ansible/
+
+https://www.linuxsysadmins.com/splunk-forwarder-installation-using-ansible/
+https://zhuanlan.zhihu.com/p/73701286
+
+https://www.mydailytutorials.com/category/tutorials/ansible/page/5/
+
+https://www.middlewareinventory.com/blog/ansible-lineinfile-examples/
+
+https://www.unixarena.com/2019/05/passing-variable-from-one-playbook-to-another-playbook-ansible.html/
+
+https://www.unixarena.com/2019/07/how-to-boost-ansible-playbook-speed.html/
+
+
+########################################################
+lineinfile  with file backup 
+
+---
+- name: Playbook Sample
+  hosts: web
+  become: true
+  tasks:
+    - name: install libselinux-python
+      yum:
+        name: libselinux-python
+        state: present
+
+    - name: root change sshd 
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin\s+'
+        line: PermitRootLogin no
+        validate: sshd -t -f %s
+        backup: yes
+      notify:
+        - sshdRestart
+
+  handlers:
+    - name: sshdRestart
+      service:
+        name: sshd
+        state: restarted
+
+##########################################################
+
+
+
+---
+- name: Playbook Sample
+  hosts: web
+  become: true
+  tasks:
+    - name: install libselinux-python
+      yum:
+        name: libselinux-python
+        state: present
+
+    - name: root change sshd 
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: '^PermitRootLogin\s+'
+        line: PermitRootLogin no
+        validate: sshd -t -f %s
+        backup: yes
+      notify:
+        - sshdRestart
+
+    - name: SSH | Configure SSH Strict Mode
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: '#StrictModes yes'
+        line: 'StrictModes yes'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart 
+
+    - name: SSH | Configure SSH Pubkey Auth
+      lineinfile:
+        dest: /etc/ssh/sshd_config 
+        regexp: 'PubkeyAuthentication yes'
+        line: 'PubkeyAuthentication yes'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart 
+
+    - name: SSH | Configure SSH Agent Forwarding
+      lineinfile:
+        dest: /etc/ssh/sshd_config 
+        regexp: '#AllowAgentForwarding yes'
+        line: 'AllowAgentForwarding no'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart 
+
+    - name: SSH | Configure SSH Tcp Forwarding
+      lineinfile:
+        dest: /etc/ssh/sshd_config 
+        regexp: '#AllowAgentForwarding yes'
+        line: 'AllowTcpForwarding no'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart
+
+    - name: SSH | Configure SSH X11 Forwarding
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: 'X11Forwarding yes'
+        line: 'X11Forwarding no'
+        validate: sshd -t -f %s
+      notify:
+        - sshdRestart
+
+  handlers:
+    - name: sshdRestart
+      service:
+        name: sshd
+        state: restarted
+
+
+
+
+
+#############################
+systctl 
+
+---
+- hosts: all
+  gather_facts: false
+  become: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    sysctl_config:
+      net.ipv4.ip_forward: 1
+      net.ipv4.conf.all.forwarding: 1
+      net.ipv6.conf.all.forwarding: 1
+
+  tasks:
+   - name: Change various sysctl-settings
+     sysctl:
+       name: '{{ item.key }}'
+       value: '{{ item.value }}'
+       sysctl_set: yes
+       state: present
+       reload: yes
+       ignoreerrors: yes
+     with_dict: '{{ sysctl_config }}'
+
+
+
+
+
+####################################################
+
+Create User on REMOTE SERVER)
+---
+- hosts: all
+  become: true
+  gather_facts: no
+  
+vars:
+  username: ramadoss
+  shell: /bin/bash
+  password: test123
+tasks:
+- name: create user
+  username: "{{ username }}"
+  shell: "{{ shell }}"
+  password: "{{ password | password_hash('sha512') }}"
+
+
+#############################################
+DYNAMICALLY CREATING SAME THING:
+    ---
+    - hosts: all
+      become: true
+      gather_facts: no
+  
+    vars_prompt:
+    - name: "username"
+      prompt: "Please enter Username"
+      private: no
+    - name: "shell"
+      prompt: "Please specify shell"
+      private: no
+    - name: "password"
+      prompt: "Please enter Password"
+      private: yes
+
+    tasks:
+    - name: create user
+      user:
+      name: "{{ username }}"
+      shell: "{{ shell }}"
+      password: "{{ password | password_hash('sha512') }}"
+
+
+############################################################################
+DISPLAY ALL THE OPTION AND ITS OUTPUT ON DEBUG SCREEN
+
+---
+ - hosts: all
+   become: true
+   gather_facts: no
+   tasks:
+
+   - name: check the disk space
+     command: df -hT
+     register: disk
+   - debug: var=disk.stdout_lines
+
+   - name: checking RAM Space
+     command: free -m
+     register: disk1
+   - debug: var=disk1.stdout_lines
+
+   - name: checking virtual memory space
+     command: vmstat
+     register: disk2
+   - debug: var=disk2.stdout_lines
+
+   - name: checking process list
+     command: ps aux
+     register: disk3
+   - debug: var=disk3.stdout_lines
+
+   - name: Check versions of ansible
+     command: ansible --version
+     register: disk4
+   - debug: var=disk4.stdout_lines
+   
+#################################################################################################### 
+   
+
+
+
+Parallel vs Serial Task:
+With parallel task running in playbook:
+
+[dev01@controller lab1]$ cat parallel.yml 
+---
+- hosts: all
+  gather_facts: no
+
+  tasks:
+
+  - name: sleep for 5 seconds
+    shell: /bin/sleep 5
+
+
+vagrant@mgmt:~$ ansible-playbook parallel.yml   -CD
+PLAY [all] ******************************************************************************************************************************************************************************
+
+TASK [sleep for 5 seconds] *********************************************************************************************************************************************************************************
+skipping: [lb]
+skipping: [web2]
+skipping: [web1]
+
+PLAY RECAP ******************************************************************************************************************************************************************************
+lb                         : ok=0    changed=0    unreachable=0    failed=0   
+web1                       : ok=0    changed=0    unreachable=0    failed=0   
+web2                       : ok=0    changed=0    unreachable=0    failed=0   
+
+
+
+
+With serial task running in playbook:
+[dev01@controller lab1]$ cat serial.yml  
+---
+- hosts: all
+  gather_facts: no
+  serial: 1
+
+  tasks:
+
+  - name: sleep for 5 seconds
+    shell: /bin/sleep 5
+
+
+
+
+IF YOU WANT TO COPY OUTPUT TO SOMEFILE
+ansible-playbook commands.yml > output
+ls -l
+vim output
+COPY FILE FROM REMOTE TO REMOTE
+---
+- hosts: webserver01
+  become: true
+  gather_facts: no
+
+tasks:
+- name: copy file from ubuntu server to centos
+  synchronize:
+     src: /home/ubuntu/ubuntu_file
+     dest: /home/centos/
+     mode: pull
+  delegate_to: dbserver01
+CONDITIONALLY INSTALL APACHE AND HTTPD ON CENTOS AND UBUNTU
+---
+- hosts: all
+  become: True
+  gather_facts: yes
+
+tasks:
+- name: Install apache httpd on dbserver01
+  yum: name=httpd state=present
+  when: ansible_os_family=="RedHat"
+
+- name: Start Apache httpd httpd
+  service: name=httpd state=started
+  when: ansible_os_family=="RedHat"
+
+- name: Install Apache2 on webserver01
+  apt: name=apache2 state=present
+  when: ansible_os_family=="Debian"
+
+- name: Start Apache
+  service: name=apache2 state=started
+  when: ansible_os_family=="Debian"
+
+- name: Check Apache status
+  command: systemctl status httpd
+  when: ansible_os_family=="RedHat"
+
+- name: check Apache status
+  command: systemctl status apache2
+  when: ansible_os_family=="Debian"
+USING TAG WE CAN DISPLAY ONLY TAGGED ONE
+---
+- hosts: all
+  become: true
+  gather_facts: no
+
+tasks:
+- name: check the disk space
+  command: df -hT
+  register: disk
+  tags: disktag
+- debug: var= disktag.stdout_lines
+
+- name: checking RAM Space
+  command: free -m
+  register: disk1
+  tags: ramtag
+- debug: var= ramtag.stdout_lines
+
+- name: checking virtual memory space
+  command: vmstat
+  register: disk2
+  tags: virtualtag
+- debug: var= virtualtag.stdout_lines
+
+- name: checking process list
+  command: ps aux
+  register: disk3
+  tags: processtag
+- debug: var= processtag.stdout_lines
+
+- name: Check versions of ansible
+  command: ansible --version
+  register: disk4
+  tags: versiontag
+- debug: var=versiontag.stdout_lines
+
+
+
+HOW TO RUN = ansible-playbook tags.yml --tags versiontag
+
+
+
+
+--- # include task playbook
+- hosts: all
+  user: ansible
+  sudo: yes
+  connection: ssh
+  gather_facts: no
+  tasks:
+   - name: echo task
+     raw: echo "mohan" >> /home/ansible/var.log
+     tags:
+      - echotask
+   - name: list task
+     raw: ls -la /home/ansible >> /home/ansible/var.log
+     tags:
+      - listtask
+# ansible-playbook tags.yml --tags "listtask"
+
+
+
+
+
+
+HOW TO RUN Once 
+
+
+
+--- # Run-once playbook
+- hosts: all
+  user: ansible
+  sudo: yes
+  connection: ssh
+  gather_facts: no
+  tasks:
+   - name: list
+     raw: ls -la /var > /home/ansible/var.log
+     async: 300
+     poll: 3
+     run_once: true
+     delegate_to: localhost
+	 
+	 
+
+conditionals 
+
+# ansible all -m setup -a "filter=ansible_os_family"
+--- # conditional playbook
+- hosts: all
+  user: ansible
+  sudo: yes
+  connection: ssh
+  gather_facts: yes
+  tasks:
+   - nmae: install apache for debain
+     command: apt-get -y install apache2
+     when: ansible_os_family == "Debian"
+   - name: install apache for redhat
+     command: yum -y install httpd
+     when: ansible_os_family == "RedHat"
+ 
+ # another way    
+---# conditional playbook
+- hosts: all
+  user: ansible
+  sudo: yes
+  connection: ssh
+  gather_facts: yes
+  tasks:
+   - nmae: install apache for debain
+     apt: name=apache2 state=present
+     when: ansible_os_family == "Debian"
+   - name: install apache for redhat
+     yum: name=httpd state=present
+     when: ansible_os_family == "RedHat"
+	 
+
+# Playbook with conditional example
+---
+- name: Playbook with conditional example
+  hosts: labservers
+  tasks:
+   - name: Check conditional in ansible
+     shell: uptime
+     register: uptime_stat
+     when: ansible_hostname == 'ansible-node2'
+     
+   - name: Display uptime
+     debug: var=uptime_stat
+	 
+	 
+
+###############shell command only for redhatsystems
+
+
+
+---
+- name: Conditional Example
+  hosts: testserver
+  tasks:
+    - name: Run a shell command only for debian systems
+      shell: echo "only on Debian Family systems"
+      when: ansible_os_family == "Debian"
+
+    - name: Run a shell command only for redhatsystems
+      shell: echo "only on Red Hat Family systems"
+      when: ansible_os_family == "RedHat"
+
+    - name: Run a shell command only for CentOS 6 or Debian 7
+      shell: echo "only on CentOS 6 or Debian 7 systems"
+      when: (ansible_distribution == "CentOS" and ansible_distribution_major_version == "6") or
+            (ansible_distribution == "Debian" and ansible_distribution_major_version == "7")
+
+    - name: Run a loop conditional
+      command: echo {{ item }}
+      with_items: [ 0, 2, 4, 6, 8, 10 ]
+      when: item > 5
+
+
+	  
+	 
+###############################################
+
+
+playbooks-advanced
+
+
+blocks
+
+
+
+
+	 
+	 
+filters
+
+
+---
+- name: show some filters
+  hosts: testserver
+  vars:
+    test_list:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 5
+      - 2
+
+  tasks:
+    - name: show a to_json filter
+      debug: msg="to_json filter {{group_specific_var|to_json}}"
+
+    - name: show a to_yaml filter
+      debug: msg="to_yaml filter {{group_specific_var|to_yaml}}"
+
+    - name: defaulting undefined variables
+      debug: msg="defaulting undefined variables - {{non_existant|default(5)}}"
+
+    - name: list filter min
+      debug: msg="list filter min - {{test_list|min}}"
+
+    - name: list filter max
+      debug: msg="list filter max - {{test_list|max}}"
+
+    - name: list filter unique
+      debug: msg="list filter unique - {{test_list|unique}}"
+
+    - name: list filter shuffle
+	
+	
+	
+
+
+################################
+wait 
+
+
+---
+
+- name: Run tasks in parallel
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Pretend to create instances
+      command: "sleep {{ item }}"  # Instead of calling a long running operation at a cloud provider, we just sleep.
+      with_items:
+        - 6
+        - 8
+        - 7
+      register: _create_instances
+      async: 600  # Maximum runtime in seconds. Adjust as needed.
+      poll: 0  # Fire and continue (never poll)
+
+    - name: Wait for creation to finish
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: _jobs
+      until: _jobs.finished
+      delay: 5  # Check every 5 seconds. Adjust as you like.
+      retries: 10  # Retry up to 10 times. Adjust as needed.
+      with_items: "{{ _create_instances.results }}"
+	  
+	  
+########################################################################	  
+
+
+---
+
+- name: Run tasks in parallel
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Pretend to create instances
+      command: "sleep {{ item }}"  # Instead of calling a long running operation at a cloud provider, we just sleep.
+      with_items:
+        - 6
+        - 8
+        - 7
+      register: _create_instances
+      async: 600  # Maximum runtime in seconds. Adjust as needed.
+      poll: 0  # Fire and continue (never poll)
+
+    - name: Wait for creation to finish
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: _jobs
+      until: _jobs.finished
+      delay: 5  # Check every 5 seconds. Adjust as you like.
+      retries: 10  # Retry up to 10 times. Adjust as needed.
+      with_items: "{{ _create_instances.results }}"
+	  
+	  
+	  
+
+
+
+#####################################	
+
+
+*List all tasks in the playbook 
+* ansible-playbook playbook.yml --list-tasks
+*Start the play from a particular task 
+*ansible-playbook playbook.yml --start-at-task="task name" 
+*Start the play step by step with interactive way. This will prompt the user for to confirm each task before running. 
+*ansible-playbook playbook.yml --step 
+Check syntax of the playbook 
+ansibe-playbook playbook.yml --syntax-check 
+Execute the playbook in the check (dry-run) mode ,which check what changes will be performed.
+ansible-playbook playbook.yml --check 
+List hosts on which playbook will be executed 
+ansible-playbook playbook.yml --list-hosts -1 subset 
+List tags in the playbook 
+ansible-playbook playbook.yml --list-tags 
+Only run plays and tasks tagged with these tag values 
+ansible-playbook playbook.yml --tags tagl,tag2...tagN 
+Skip the tasks associated with specific tasks 
+ansible-playbook playbook.yml --skip-tags tag1,tag2...tagN 
+
+
+CREATE EC2 INSTANCE USING ANSIBLE
+Install following pip and boto
+Easy-install pip
+Pip install boto
+Create IAM user
+Create user
+Full Adminaccess
+Download csv file
+ec2user.yml
+
+---
+- name: Create EC2 instances
+  hosts: localhost
+  gather_facts: no
+
+vars:
+  region: us-east-1
+  instance_type: t2.micro
+  image: ami-97785bed
+  group: Ansible_demo
+  key_name: Abhi
+
+# check ec3 docs
+
+tasks:
+- name: Launch Instance
+  ec2:
+    region: "{{ region }}"
+    instance_type: "{{instance_type }}"
+    image: "{{ image }}"
+    group: "{{ group }}"
+    key_name: "{{ key_name }}"
+    aws_access_key: 
+    aws_secret_key: 
+    wait: true
+    register: ec2_output
+- debug: var=ec2_output
+ENCLOSE SECRET KEY
+
+
+Ansible vault – to store our secret keys in encrypted manner
+ansible-vault --help Usage: ansible-vault [create|decrypt|edit|encrypt|encrypt_string|rekey|view] [options] [vaultfile.yml]
+ansible-vault create aws_key.yml • sekey: aws secret key • ackey: aws access key
+ansible-vault view aws_key.yml
+ansible-vault rekey aws_key.yml
+ansible-vault edit aws_key.yml
+ansible-vault decrypt aws_key.yml
+1st method
+To execute ansible vault ec2.yml.
+
+sudo ansible-playbook ec2.yml - -ask-vault-pass
+
+2nd method
+
+
+vim .keys.txt
+password
+wq!
+
+sudo ansible-playbook ec2.yml - -vault-password-file .keys.txt
+
+
+
+3rd method
+Mention keys.yml file in ansible.cfg file
+
+vim ansible.cgf 
+Add at the end  Vault_password_file=./.keys.txt
+wq!
+
+sudo ansible-playbook ec2.yml
+
+
+
+
+
+Run playbook.
+
+Assuming you ran the adhoc commands a ansible user already exists that can sudo. If not you need to run the adhoc commands.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+We can use the newly created Ansible user and the -b option (become root) to elevate permissions.
+
+Variables
+Variables allow for dynamic input. In Ansible variables can be defined in many ways such as: playbook itself, inventory file via host or group vars, cli via extra_vars or in a separate vars file that can be included in playbook. Let’s take a look at these options in more detail. Instead of hard-coding the username we created above let’s explore doing so using the different variable options.
+
+Vars via inventory file.
+
+Variables can be defined for a host or group in the inventory file itself. Here we will define a variable username for the group servers.
+
+Update inventory file and add vars for group servers.
+
+$ vi inventory
+
+[servers]
+server1.lab.com
+server2.lab.com
+server3.lab.com
+server4.lab.com
+
+[servers:vars]
+username=ansible
+Update playbook to use variables.
+
+$ vi add_user.yml
+---
+- name: Add a privileged user for Ansible
+  hosts: servers
+
+  tasks:
+    - name: Add a user
+      user:
+        name: "{{ username }}"
+        shell: /bin/bash
+        generate_ssh_keys: yes
+        state: present
+    - name: Configure sudo permission
+      lineinfile:
+        dest: /etc/sudoers.d/{{ username }}
+        line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+        create: yes
+        state: present
+Notice that the variable {{ username }} needs quotes only when it starts a line.
+
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+Variables in playbook
+
+Variables can be defined directly in the playbook.
+
+$ vi add_user.yml
+---
+- name: Add a privileged user for Ansible
+  hosts: servers
+  vars:
+    username: ansible
+
+  tasks:
+    - name: Add a user
+      user:
+        name: "{{ username }}"
+        shell: /bin/bash
+        generate_ssh_keys: yes
+        state: present
+    - name: Configure sudo permission
+      lineinfile:
+        dest: /etc/sudoers.d/{{ username }}
+        line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+        create: yes
+        state: present
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+Variables imported from vars file.
+
+Similar to above example, variables can be defined in a separate file and then imported into playbook.
+
+Create vars file.
+
+$ vi my_vars.yml
+---
+username: ansible
+Update playbook.
+
+$ vi add_user.yml
+---
+- name: Add a privileged user for Ansible
+  hosts: servers
+  vars_files:
+    - ./my_vars.yml
+
+  tasks:
+    - name: Add a user
+      user:
+        name: "{{ username }}"
+        shell: /bin/bash
+        generate_ssh_keys: yes
+        state: present
+    - name: Configure sudo permission
+      lineinfile:
+        dest: /etc/sudoers.d/{{ username }}
+        line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+        create: yes
+        state: present
+The best practice #3 is to use inventory file to define key/value type variables that should be parameterized. Variables that are dynamically generated or utilize nested data structures should use vars_files and be included. Avoid using vars in playbook directly if possible.
+
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+Ansible Facts
+Each time Ansible is run unless disabled the setup module is also run. The setup module gathers Ansible facts. These are variables that give us valuable information about the managed host and they can be acted upon within playbooks.  Anything from a hosts network, hardware and OS information are gathered. It is also possible to define custom facts that would be gathered.
+
+View ansible facts for a host.
+
+$ ansible -m setup -u ansible -b -i ./inventory servera.lab.com
+Use ansible facts in playbook.
+
+Here we will print the memory and number of cpu cores in our playbook by adding a new task.
+
+$ vi add_user.yml
+---
+    - name: Print Memory and CPU Cores
+      debug:
+        msg: "Host {{ ansible_hostname }} has {{ ansible_memtotal_mb }} MB Memory and {{ ansible_processor_cores }} CPU Cores."
+---
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+Controlling Playbooks
+We have seen how to use modules to drive tasks and even parameterize them with variables. Next we will understand how to better control tasks within those playbooks.
+
+When Conditional
+
+This acts as an if statement in common programming languages. In Ansible we use when statement to run a task based on a condition being met.
+
+Execute add user only when username is defined.
+
+$ vi add_user.yaml
+---
+    - name: Add a user
+      user:
+        name: "{{ username }}"
+        shell: /bin/bash
+        generate_ssh_keys: yes
+        state: present
+      when: username is defined
+---
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+Loops
+
+In Ansible loops are very useful when the same task or module need to execute against a list. In our playbook let’s update it to take action on many users and thus show how to use a loop.
+
+Update vars file.
+
+$ vi my_vars.yml
+---
+users:
+  - ansible
+  - bob
+  - joe
+  - keith
+Update playbook.
+
+$ vi add_user.yml
+---
+- name: Add a privileged user for Ansible
+  hosts: servers
+  vars_files:
+    - ./my_vars.yml
+
+  tasks:
+    - name: Print Memory and CPU Cores 
+      debug: 
+        msg: "Host {{ ansible_hostname }} has {{ ansible_memtotal_mb }} MB Memory and {{ ansible_processor_cores }} CPU Cores."
+    - name: Add a user
+      user:
+        name: "{{ item }}"
+        shell: /bin/bash
+        generate_ssh_keys: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+    - name: Configure sudo permission
+      lineinfile:
+        dest: /etc/sudoers.d/{{ item }}
+        line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+        create: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+Handlers
+
+In order to couple tasks or have a task executed from another task, a handler is required. Here we will look at converting the “configure sudo permission” task into a handler that can be triggered by the “add a user” task.
+
+Update playbook.
+
+$ vi add_user.yml
+---
+- name: Add a privileged user for Ansible
+  hosts: servers
+  vars_files:
+    - ./my_vars.yml
+
+  tasks:
+    - name: Print Memory and CPU Cores 
+      debug: 
+        msg: "Host {{ ansible_hostname }} has {{ ansible_memtotal_mb }} MB Memory and {{ ansible_processor_cores }} CPU Cores."
+    - name: Add a user
+      user:
+        name: "{{ item }}"
+        shell: /bin/bash
+        generate_ssh_keys: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+      notify:
+        - 'Configure sudo permission'
+
+  handlers:
+    - name: Configure sudo permission
+      lineinfile:
+        dest: /etc/sudoers.d/{{ item }}
+        line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+        create: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+Now sudo permissions will only be set when a new user is actually added. It is very important to understand behavior with handlers, a notifer will only run when the task made a change.
+
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+Tags
+
+It may be desired to only run certain tasks and to control which tasks get run from cli. This is done in Ansible via tags. Lets set a tag which will only run the task that prints memory and cpu info.
+
+Update playbook.
+
+$ vi add_user.yml
+---
+- name: Add a privileged user for Ansible
+  hosts: servers
+  vars_files:
+    - ./my_vars.yml
+
+  tasks:
+    - name: Print Memory and CPU Cores 
+      debug: 
+        msg: "Host {{ ansible_hostname }} has {{ ansible_memtotal_mb }} MB Memory and {{ ansible_processor_cores }} CPU Cores."
+      tags:
+        - info
+    - name: Add a user
+      user:
+        name: "{{ item }}"
+        shell: /bin/bash
+        generate_ssh_keys: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+      notify:
+        - 'Configure sudo permission'
+
+  handlers:
+    - name: Configure sudo permission
+      lineinfile:
+        dest: /etc/sudoers.d/{{ item }}
+        line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+        create: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+Run playbook using tag ‘info’.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory --tags 'info'
+Blocks
+
+In order to handle errors in Ansible blocks are often used. The block statement defines the main task to run. The rescue statement defines a task that should run if an error is encountered inside the block. Here we will setup error handling for our add user task.
+
+Update playbook.
+
+$ vi add_user.yml
+---
+- name: Add a privileged user for Ansible
+  hosts: servers
+  vars_files:
+    - ./my_vars.yml
+
+  tasks:
+    - name: Print Memory and CPU Cores 
+      debug: 
+        msg: "Host {{ ansible_hostname }} has {{ ansible_memtotal_mb }} MB Memory and {{ ansible_processor_cores }} CPU Cores."
+      tags:
+        - info
+    - block:
+        - name: Add a user
+          user:
+            name: "{{ item }}"
+            shell: /bin/bash
+            generate_ssh_keys: yes
+            state: present
+          with_items: "{{ users }}"
+          when: item is defined
+          notify:
+            - 'Configure sudo permission'
+      rescue:
+        - name: revert user add
+          user: 
+            name: "{{ item }}" 
+            state: absent 
+          with_items: "{{ users }}" 
+          when: item is defined         
+  handlers:
+    - name: Configure sudo permission
+      lineinfile:
+        dest: /etc/sudoers.d/{{ item }}
+        line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+        create: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+The playbook will now attempt to remove users if an error occurs with the add user task. You can simulate this by adding a new user to my_vars.yml file and running without the -b (become root) option.
+
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -i ./inventory
+Templates
+In Ansible templates are used mostly to parameterize configuration files. Ansible uses the jinja2 templating system. A template module is provided that defines the template and where it should be placed. Variables are automatically substituted for their values when the template is copied to its destination. We will add a new task to the playbook which sets the motd using hostname as a dynamic variable from a motd jinja2 template.
+
+Create a jinja2 template for motd.
+
+$ vi motd.j2
+Ansible Rocks!!! This is host {{ ansible_hostname }}.
+Update playbook.
+
+$ vi add_user.yml
+---
+- name: Add a privileged user for Ansible
+  hosts: servers
+  vars_files:
+    - ./my_vars.yml
+
+  tasks:
+    - name: Configure MOTD using template
+      template:
+        src: ./motd.j2
+        dest: /etc/motd
+        owner: root
+        group: root
+        mode: 0644
+    - name: Print Memory and CPU Cores 
+      debug: 
+        msg: "Host {{ ansible_hostname }} has {{ ansible_memtotal_mb }} MB Memory and {{ ansible_processor_cores }} CPU Cores."
+      tags:
+        - info
+    - block:
+        - name: Add a user
+          user:
+            name: "{{ item }}"
+            shell: /bin/bash
+            generate_ssh_keys: yes
+            state: present
+          with_items: "{{ users }}"
+          when: item is defined
+          notify:
+            - 'Configure sudo permission'
+      rescue:
+        - name: revert user add
+          user: 
+            name: "{{ item }}" 
+            state: absent 
+          with_items: "{{ users }}" 
+          when: item is defined         
+  handlers:
+    - name: Configure sudo permission
+      lineinfile:
+        dest: /etc/sudoers.d/{{ item }}
+        line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+        create: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+Run playbook.
+
+$ ansible-playbook add_user.yml -u ansible -b -i ./inventory
+The playbook will now update motd based on our jinja2 template. The hostname will be dynamically applied based on the variable.
+
+Check MOTD.
+
+$ ssh -l ansible server1
+Ansible Rocks!!! This is host server1.
+Roles
+Now that we have a good understanding about playbooks it is time to move on to roles. In Ansible roles allow Ansible to be reusable. The Ansible community provides galaxy which allows community members to share roles. There are 1000s of roles so often if you want to do something in Ansible, there is probably already a roll that exists in galaxy to do so. You can also easily modify roles to fit intended purpose. We now come to best practice #4, don’t be lazy, always create roles. Not only will roles allow you to share your playbook packages with others, but will also enforce good structuring , clean code and allow you to re-use role components in ways that were not even considered. We will now restructure our playbook tasks, variables, handlers and templates into a add user role.
+
+Create empty role structure.
+
+The ansible-galaxy command allows lists, installs and removes roles from galaxy. It also generates the empty structure of a role, useful for creating your own roles. Here we will create the empty structure for our new add_user role.
+
+$ ansible-galaxy init --offline -p roles add_user
+ Create role tasks.
+
+Now we will move the tasks from our playbook into the role. A simply copy/paste and delete of the first four empty spaces of each line will suffice.
+
+$ vi roles/add_user/tasks/main.yml
+---
+- name: Configure MOTD using template
+  template:
+    src: ./motd.j2
+    dest: /etc/motd
+    owner: root
+    group: root
+    mode: 0644
+- name: Print Memory and CPU Cores 
+  debug: 
+    msg: "Host {{ ansible_hostname }} has {{ ansible_memtotal_mb }} MB Memory and {{ ansible_processor_cores }} CPU Cores."
+  tags:
+    - info
+- block:
+    - name: Add a user
+      user:
+        name: "{{ item }}"
+        shell: /bin/bash
+        generate_ssh_keys: yes
+        state: present
+      with_items: "{{ users }}"
+      when: item is defined
+      notify:
+        - 'Configure sudo permission'
+  rescue:
+    - name: revert user add
+      user: 
+        name: "{{ item }}" 
+        state: absent 
+      with_items: "{{ users }}" 
+      when: item is defined
+Create role handlers.
+
+Similar to tasks handlers also have a specific location within a role. Again copy/paste and delete of the first four spaces of each line.
+
+$ vi roles/add_user/handlers/main.yml
+---
+- name: Configure sudo permission
+  lineinfile:
+    dest: /etc/sudoers.d/{{ item }}
+    line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+    create: yes
+    state: present
+  with_items: "{{ users }}"
+  when: item is defined
+Create role vars.
+
+Variables for a role can be stored under vars or default. In this case we will put them under vars.
+
+$ vi roles/add_users/vars/main.yml
+--- 
+users: 
+  - ansible 
+  - bob 
+  - joe 
+  - keith
+Create role templates.
+
+Templates simply need to be copied to the correct location.
+
+$ cp motd.j2 roles/add_user/templates
+Create playbook that uses role.
+
+$ vi add_user_using_role.yml
+---
+- name: Add user using role
+  hosts: servers
+  roles:
+    - add_user
+Run playbook.
+
+$ ansible-playbook add_user_using_role.yml -u ansible -b -i ./inventory
+The playbook will now execute our role. As you have seen roles provide a pre-defined structuring and packaging of playbook tasks that greatly enhances re-usability.
+
+Summary
+In this article we have discussed the need and great opportunity automation provides. We have explored the basics of Ansible and why Ansible has become the standard language of automation. This article attempts to provide a pragmatic approach to learning Ansible, from installation, adhoc commands, creating your first playbook , learning fundamentals and finally putting it all together in a role. The greatest thing you can do for yourself and your organization is to automate everything.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Create empty role structure.
+
+The ansible-galaxy command allows lists, installs and removes roles from galaxy. 
+It also generates the empty structure of a role, useful for creating your own roles. 
+Here we will create the empty structure for our new add_user role.
+
+$ ansible-galaxy init --offline -p roles add_user
+
+
+
+Chapter 4. Make a complex playbook
+
+-Repeat-with_items
+
+-Save output for later use-register
+
+-Conditional execution-when
+
+-Repeat until successful-until
+
+-Reference external information-lookup
+
+-Process variables-filter
+
+-Type from the keyboard-vars_prompt
+
+-Run on admin host-local_action
+
+-Change the module to be executed with a variable-action
+
+-Set environment variables-environment
+
+-Ignore on failure-ignore_errors
+
+-Execute task asynchronously-async
+
+Chapter 5. Build a large playbook
+
+-Load other playbooks-include
+
+-Recommended directory structure-best practices
+
+-Reuse in bulk-role
+
+-Parallel execution-fork
+
+-Run in sequence-serial
+
+-Cooperation with AWS EC2
+
+-Dynamic list of hosts-dynamic inventory
+
+Chapter 6. Using command line options
+
+-ssh authentication
+
+-Limit target hosts-limit
+
+-Limit the tasks to be executed-tag
+
+-Run dry-run-check
+
+-Execute while checking task-step
+
+-Differential representation-diff
+
+Chapter 8. Let's use the public role-Ansible Galaxy
+
+- Ansible Galaxyとは
+
+-How to search for role
+
+-Get a role
+
+-How to use role
+
+Chapter 9. Frequently Asked Questions
+
+- can not connect
+
+-ControlPath too long error
+
+-Even if you run it, it stops halfway
+
+-I want to connect without an inventory file
+
+-One playbook has become complicated
+
+-I get a python not found error
+
+-I want to use it on Windows
+
+-Strange pictures are displayed in ansible-playbook
+
+-I want to know the variables that ansible collects
+
+-I get invalid type type 'list'
+
+-"Syntax Error" when using variables
+
+-What does "---" mean?
+
+-What is the origin of the name Ansible?
+
+Chapter 10. Conclusion
+
+Appendix: Creating your own module
+
+-Module behavior
+
+-Module format
+
+-Module sample
+
+-Convenience functions in Python
+
+-Module debugging
+
+Appendix: Ansible plugin
+
+-plugin type
+
+- lookup plugin
+
+- filter plugin
+
+- callback plugin
+
+- action plugin
+
+- connection type plugin
+
+- fresh plugin
+
+Appendix: ansible config file
+
+-default section
+
+-paramiko section
+
+-ssh_connection section
+
+-accelerate section
+
+Appendix: Windows compatible
+
+-Prerequisite environment
+
+-Ready
+
+-inventory file
+
+- module
+
+-Limitations
+
+ansible target_host -i inventory_file -m shell -a 'echo "Hello World"'
+
+ansible target_host -m ping -i inventory_file -u root
+
+ansible target_host -m service -a "name=httpd state=started"
+
+ansible target_host -m user -a "name=username password=<crypted password here>"
+
+3.2.ansible-playbook
+
+ansible-playbook -i inventory_file playbook.yml
+
+ansible-playbook -i inventory_file playbook.yml --syntax-check
+
+ansible-playbook -i inventory_file playbook.yml --list-tasks
+
+ansible-playbook -i inventory_file -u root -k playbook.yml -vvv
+
+ansible-playbook --extra-vars "xxx=yes" -i inventory_file playbook.yml
+
+ansible-playbook -e "xxx=yes" -i inventory_file playbook.yml
+
+ansible-playbook -i inventory_file playbook.yml --private-key=/path/key.pem
+
+3.3.ansible-doc
+ansible-doc -l
+
+Check role version
+ansible-galaxy list --roles-path <role path>
+
+
+ansible-playbook -i inventory -u {username} playbool.yml --ask-become-pass
+
+ansible-playbook -i i[hosts] site.yml
+
+ansible-playbook -i [hosts] webservers.yml
+
+
+ansible-playbook -i [hosts] --limit 
+tag
+
+ansible-playbook -i [hosts] --tags 
+task
+
+ansible-playbook -i [hosts] webservers.yml --tags ntp --list-tasks
+hosts
+
+ansible-playbook -i [hosts] webservers.yml --tags ntp --list-hosts
+
+ansible-playbook deploy_devops.yml --syntax-check
+
+
+
+
+
+
+
+
+
+
