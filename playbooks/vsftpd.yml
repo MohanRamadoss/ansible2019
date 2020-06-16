@@ -1,0 +1,32 @@
+- name: LAB 1.4 - Install vsftpd and copy content
+  hosts: all
+  become: yes
+  vars:
+    service: vsftpd
+
+  tasks:
+   - name: install service {{ service }}
+     package:
+       name: "{{ service }}"
+       state: latest
+     register: install_service_result
+     when: (ansible_hostname == "ansible-worker1") or (ansible_hostname == "ansible-worker2")
+
+   - name: outout from installation
+     debug:
+      msg: "{{ install_service_result }}"
+
+   - block:
+      - name: start and enable {{ service }}    
+        service:
+         name: "{{ service }}"
+         state: started
+         enabled: true
+
+      - name: copy content
+        copy:
+         content: "welcome to my service"
+         dest: /var/ftp/pub/README
+         force: no
+         mode: 0444
+     when: install_service_result.changed
